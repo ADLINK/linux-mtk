@@ -7,7 +7,6 @@
 
   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 *******************************************************************************/
-
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/module.h>
@@ -19,6 +18,58 @@
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
+
+#include <linux/i2c.h>
+#include <linux/err.h>
+
+
+#ifdef CONFIG_ARCH_ADLINKTECH
+#include <linux/i2c.h>
+#include <linux/err.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+int read_eeprom_mac_address(struct device *dev, unsigned char *mac)
+{
+    struct i2c_client *client;
+    struct device_node *eeprom_node;
+    int ret;
+
+    eeprom_node = of_parse_phandle(dev->of_node, "eeprom", 0);
+    if (!eeprom_node) {
+        dev_err(dev, "Failed to get EEPROM device node from device tree\n");
+        return -ENODEV;
+    }
+
+    client = of_find_i2c_device_by_node(eeprom_node);
+    if (!client) {
+        dev_err(dev, "Failed to get I2C client from device tree\n");
+        of_node_put(eeprom_node);
+        return -ENODEV;
+    } else {
+        dev_info(dev, "Successfully got I2C client from device tree\n");
+    }
+
+    ret = i2c_smbus_read_i2c_block_data(client, 0, 6, mac);
+    if (ret != 6) {
+        dev_err(dev, "Failed to read MAC address from EEPROM, ret: %d\n", ret);
+        ret = -EIO;
+    } else {
+        if (is_zero_ether_addr(mac) || is_broadcast_ether_addr(mac)) {
+            dev_err(dev, "Invalid MAC address read from EEPROM: %pM\n", mac);
+            ret = -EINVAL;
+        } else {
+            dev_info(dev, "Successfully read MAC address from EEPROM: %pM\n", mac);
+            ret = 0;
+        }
+    }
+
+    put_device(&client->dev);
+    of_node_put(eeprom_node);
+
+    return ret;
+}
+#endif
+
 
 #ifdef CONFIG_OF
 
@@ -405,7 +456,21 @@ stmmac_probe_config_dt(struct platform_device *pdev, u8 *mac)
 	plat = devm_kzalloc(&pdev->dev, sizeof(*plat), GFP_KERNEL);
 	if (!plat)
 		return ERR_PTR(-ENOMEM);
+#ifdef CONFIG_ARCH_ADLINKTECH
+    if (read_eeprom_mac_address(&pdev->dev, mac)) {
+        rc = of_get_mac_address(np, mac);
+        if (rc) {
+            if (rc == -EPROBE_DEFER)
+                return ERR_PTR(rc);
 
+            eth_zero_addr(mac);
+        } else {
+            dev_info(&pdev->dev, "Successfully read MAC address from device tree: %pM\n", mac);
+        }
+    } else {
+        dev_info(&pdev->dev, "Successfully read MAC address from EEPROM: %pM\n", mac);
+    }
+#else
 	rc = of_get_mac_address(np, mac);
 	if (rc) {
 		if (rc == -EPROBE_DEFER)
@@ -413,7 +478,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, u8 *mac)
 
 		eth_zero_addr(mac);
 	}
-
+#endif
 	phy_mode = device_get_phy_mode(&pdev->dev);
 	if (phy_mode < 0)
 		return ERR_PTR(phy_mode);

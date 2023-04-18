@@ -358,7 +358,7 @@
 	status = "okay";
 
 	/* EEPROM U3903 */
-	24c04@52 {
+    eeprom: 24c04@52 {
 		compatible = "atmel,24c04";
 		reg = <0x52>;
 	};
@@ -747,17 +747,16 @@
 };
 
 &eth {
-	phy-mode ="rgmii-rxid";
-	phy-handle = <&dp83867>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&eth_default>;
-        snps,reset-active-low;
-	snps,reset-delays-us = <0 10000 10000>;
-	mediatek,tx-delay-ps = <2030>;
-        snps,reset-gpio = <&pio 93 GPIO_ACTIVE_HIGH>;
-        //tx_delay = <0x0>;
-        //rx_delay = <0x0>;
-	status = "okay";
+    phy-mode ="rgmii-rxid";
+    phy-handle = <&dp83867>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&eth_default>;
+    snps,reset-active-low;
+    snps,reset-delays-us = <0 10000 10000>;
+    mediatek,tx-delay-ps = <2030>;
+    snps,reset-gpio = <&pio 93 GPIO_ACTIVE_HIGH>;
+    eeprom = <&eeprom>;
+    status = "okay";
 
 	mdio {
 		compatible = "snps,dwmac-mdio";
