@@ -5,7 +5,6 @@
  * Copyright (C) 2005-2007 David Brownell
  * Copyright (C) 2008 Wolfram Sang, Pengutronix
  */
-
 #include <linux/acpi.h>
 #include <linux/bitops.h>
 #include <linux/capability.h>
@@ -24,7 +23,6 @@
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
-
 /* Address pointer is 16 bit. */
 #define AT24_FLAG_ADDR16	BIT(7)
 /* sysfs-entry will be read-only. */
@@ -40,6 +38,10 @@
 /* Does not auto-rollover reads to the next slave address. */
 #define AT24_FLAG_NO_RDROL	BIT(1)
 
+#ifdef CONFIG_ARCH_ADLINKTECH
+#include <linux/sysfs.h>
+#define AT24_WP_OFFSET		128
+#endif
 /*
  * I2C EEPROMs from most vendors are inexpensive and mostly interchangeable.
  * Differences between different vendor product lines (like Atmel AT24C or
@@ -87,7 +89,9 @@ struct at24_data {
 	u32 byte_len;
 	u16 page_size;
 	u8 flags;
-
+#ifdef CONFIG_ARCH_ADLINKTECH
+	bool write_protect;
+#endif
 	struct nvmem_device *nvmem;
 	struct regulator *vcc_reg;
 	void (*read_post)(unsigned int off, char *buf, size_t count);
@@ -472,6 +476,13 @@ static int at24_write(void *priv, unsigned int off, void *val, size_t count)
 	int ret;
 
 	at24 = priv;
+#ifdef CONFIG_ARCH_ADLINKTECH
+	/* Check if write protection is enabled */
+	if (at24->write_protect && off < AT24_WP_OFFSET) {
+		printk("Write protection is enabled for the first 128 bytes.\n");
+		return -EPERM;
+	}
+#endif
 	dev = at24_base_client_dev(at24);
 
 	if (unlikely(!count))
@@ -585,6 +596,28 @@ static unsigned int at24_get_offset_adj(u8 flags, unsigned int byte_len)
 	}
 }
 
+#ifdef CONFIG_ARCH_ADLINKTECH
+static ssize_t write_protect_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct at24_data *at24 = i2c_get_clientdata(to_i2c_client(dev));
+	return sprintf(buf, "%u\n", at24->write_protect ? 1 : 0);
+}
+
+static ssize_t write_protect_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct at24_data *at24 = i2c_get_clientdata(to_i2c_client(dev));
+	unsigned long val;
+
+	if (kstrtoul(buf, 10, &val))
+		return -EINVAL;
+
+	at24->write_protect = val ? true : false;
+	return count;
+}
+
+static DEVICE_ATTR_RW(write_protect);
+
+#endif
 static int at24_probe(struct i2c_client *client)
 {
 	struct regmap_config regmap_config = { };
@@ -694,6 +727,14 @@ static int at24_probe(struct i2c_client *client)
 	at24->client[0].client = client;
 	at24->client[0].regmap = regmap;
 
+#ifdef CONFIG_ARCH_ADLINKTECH
+    err = sysfs_create_file(&client->dev.kobj, &dev_attr_write_protect.attr);
+    if (err) {
+        dev_err(&client->dev, "Unable to create sysfs attribute for write protection\n");
+        return err;
+    }
+	at24->write_protect = true;
+#endif
 	at24->vcc_reg = devm_regulator_get(dev, "vcc");
 	if (IS_ERR(at24->vcc_reg))
 		return PTR_ERR(at24->vcc_reg);
