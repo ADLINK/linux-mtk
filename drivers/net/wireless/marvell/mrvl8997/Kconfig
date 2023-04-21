@@ -1,0 +1,8 @@
+config MWIFI_PCIE_8997
+	tristate "Marvell WiFi-Ex Driver for PCIE 8997"
+	depends on CFG80211 
+	select FW_LOADER
+	help
+	This adds support for wireless adapters based on Marvell
+	8997 chipsets with PCIE interface.
+
