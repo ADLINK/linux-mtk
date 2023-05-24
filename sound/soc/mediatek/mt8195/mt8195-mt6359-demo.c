@@ -25,10 +25,12 @@
 
 
 #ifdef CONFIG_ARCH_ADLINKTECH 
-#include "../../codecs/wm8960.h"
-#define WM8960_CODEC_DAI	"wm8960-hifi"
-#define WM8960_DEV0_NAME	"wm8960.3-001a"
+#define WM8960_CODEC_DAI		"wm8960-hifi"
+#define WM8960_DEV0_NAME		"wm8960.3-001a"
+#define TLV320AIC3X_CODEC_DAI	"tlv320aic3x-hifi"
+#define TLV320AIC3X_DEV0_NAME	"tlv320aic3x.3-0018"
 #endif
+
 static const struct snd_soc_dapm_widget
 	mt8195_mt6359_demo_widgets[] = {
 #ifdef CONFIG_ARCH_ADLINKTECH
@@ -41,22 +43,65 @@ static const struct snd_soc_dapm_widget
 };
 
 static const struct snd_soc_dapm_route mt8195_mt6359_demo_routes[] = {
-#ifndef CONFIG_ARCH_ADLINKTECH 
 	{ "Headphone Jack", NULL, "AIF1 Playback" },
 	{ "AIF1 Capture", NULL, "Headset Mic" },
-#else
+};
+
+#ifdef CONFIG_ARCH_ADLINKTECH
+static const struct snd_soc_dapm_route tlv320aic3x_routes[] = {
+	{ "Headphone", NULL, "HPLOUT" },
+	{ "Headphone", NULL, "HPROUT" },
+	{ "MIC3L", NULL, "AMIC" },
+	{ "MIC3R", NULL, "AMIC" },
+};
+
+static const struct snd_soc_dapm_route wm8960_routes[] = {
 	{ "Headphone", NULL, "HP_L" },
 	{ "Headphone", NULL, "HP_R" },
 	{ "LINPUT1", NULL, "AMIC" },
 	{ "RINPUT1", NULL, "AMIC" },
-#endif
 };
-#ifdef CONFIG_ARCH_ADLINKTECH
+
 static const struct snd_kcontrol_new mt8195_mt6359_demo_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Headphone"),
 	SOC_DAPM_PIN_SWITCH("AMIC"),
 };
+
+static struct snd_soc_dai_link_component tlv320aic3x_codecs = {
+	.name = TLV320AIC3X_DEV0_NAME,
+	.dai_name = TLV320AIC3X_CODEC_DAI,
+};
+static struct snd_soc_dai_link_component wm8960_codecs = {
+	.name = WM8960_DEV0_NAME,
+	.dai_name = WM8960_CODEC_DAI,
+};
+
+enum {
+    CODEC_TLV320,
+    CODEC_WM8960,
+};
+
+struct codec_config {
+    struct snd_soc_dai_link_component *codecs;
+    const struct snd_soc_dapm_route *routes;
+    int num_routes;
+};
+
+static struct codec_config codecs_config[] = {
+    [CODEC_TLV320] = {
+        .codecs = &tlv320aic3x_codecs,
+        .routes = tlv320aic3x_routes,
+        .num_routes = ARRAY_SIZE(tlv320aic3x_routes),
+    },
+    [CODEC_WM8960] = {
+        .codecs = &wm8960_codecs,
+        .routes = wm8960_routes,
+        .num_routes = ARRAY_SIZE(wm8960_routes),
+    },
+    //... add other codecs here
+};
 #endif
+
 static int mt8195_etdm_hw_params(struct snd_pcm_substream *substream,
 				 struct snd_pcm_hw_params *params)
 {
@@ -258,40 +303,7 @@ static int mt8195_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 
 	return 0;
 }
-#ifdef CONFIG_ARCH_ADLINKTECH
-static int mt8195_wm8960_init(struct snd_soc_pcm_runtime *rtd)
-{
-	struct snd_soc_component *component =
-		asoc_rtd_to_codec(rtd, 0)->component;
 
-	/*
-	 * codec ADCLRC pin configured as GPIO, DACLRC pin is used as a frame
-	 * clock for ADCs and DACs
-	 */
-	snd_soc_component_update_bits(component, WM8960_IFACE2, 1<<6, 1<<6);
-#if 0	
-	/*
-	 * GPIO1 used as headphone detect output
-	 */
-	snd_soc_component_update_bits(component, WM8960_ADDCTL4, 7<<4, 3<<4);
-	/*
-	 * Enable headphone jack detect
-	 */
-	snd_soc_component_update_bits(component, WM8960_ADDCTL2, 1<<6, 1<<6);
-	snd_soc_component_update_bits(component, WM8960_ADDCTL2, 1<<5, 1<<5);
-	snd_soc_component_update_bits(component, WM8960_ADDCTL4, 3<<2, 3<<2);
-
-#endif
-	snd_soc_component_update_bits(component, WM8960_ADDCTL1, 3, 3);
-	/*
-	 * route left channel to right channel in default.
-	 */
-	snd_soc_component_update_bits(component, WM8960_ADDCTL1, 3<<2, 1<<2);
-	/*unmute*/
-	snd_soc_component_update_bits(component, WM8960_DACCTL1, 0x8, 0);
-	return 0;
-}
-#endif
 static int mt8195_mt6359_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_component *cmpnt_codec =
@@ -345,11 +357,7 @@ static int mt8195_dptx_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	snd_mask_reset_range(hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT),
 			     0, (__force unsigned int)SNDRV_PCM_FORMAT_LAST);
 
-#ifdef CONFIG_ARCH_ADLINKTECH
-	params_set_format(params, SNDRV_PCM_FORMAT_S16_LE);
-#else
 	params_set_format(params, SNDRV_PCM_FORMAT_S24_LE);
-#endif
 
 	return 0;
 }
@@ -513,10 +521,6 @@ static struct snd_soc_dai_link mt8195_mt6359_demo_dai_links[] = {
 			SND_SOC_DPCM_TRIGGER_POST,
 		},
 		.dynamic = 1,
-#ifdef CONFIG_ARCH_ADLINKTECH
-		.ops = &mt8195_dptx_ops,
-		.be_hw_params_fixup = mt8195_dptx_hw_params_fixup,
-#endif
 		.dpcm_playback = 1,
 		SND_SOC_DAILINK_REG(DL2_FE),
 	},
@@ -688,22 +692,7 @@ static struct snd_soc_dai_link mt8195_mt6359_demo_dai_links[] = {
 	/* BE */
 	[DAI_LINK_DL_SRC_BE] = {
 		.name = "DL_SRC_BE",
-#ifdef CONFIG_ARCH_ADLINKTECH 
-		.stream_name = "WM8960",
-		.trigger = {
-			SND_SOC_DPCM_TRIGGER_POST,
-			SND_SOC_DPCM_TRIGGER_POST,
-		},
-#else
-		.init = mt8195_mt6359_init,
-#endif
-#ifdef CONFIG_ARCH_ADLINKTECH
-		.dynamic = 1,
-		.ops = &mt8195_dptx_ops,
-		.be_hw_params_fixup = mt8195_dptx_hw_params_fixup,
-#else
 		.no_pcm = 1,
-#endif
 		.dpcm_playback = 1,
 		SND_SOC_DAILINK_REG(DL_SRC_BE),
 	},
@@ -733,9 +722,6 @@ static struct snd_soc_dai_link mt8195_mt6359_demo_dai_links[] = {
 			SND_SOC_DAIFMT_NB_NF |
 			SND_SOC_DAIFMT_CBS_CFS,
 		.dpcm_playback = 1,
-#ifdef CONFIG_ARCH_ADLINKTECH
-		.init = mt8195_wm8960_init,
-#endif
 		.ops = &mt8195_etdm_ops,
 		.be_hw_params_fixup = mt8195_etdm_hw_params_fixup,
 		SND_SOC_DAILINK_REG(ETDM1_OUT_BE),
@@ -774,21 +760,12 @@ static struct snd_soc_card mt8195_mt6359_demo_soc_card = {
 	.owner = THIS_MODULE,
 	.dai_link = mt8195_mt6359_demo_dai_links,
 	.num_links = ARRAY_SIZE(mt8195_mt6359_demo_dai_links),
-#ifndef CONFIG_ARCH_ADLINKTECH
 	.dapm_widgets = mt8195_mt6359_demo_widgets,
 	.num_dapm_widgets = ARRAY_SIZE(mt8195_mt6359_demo_widgets),
 	.dapm_routes = mt8195_mt6359_demo_routes,
 	.num_dapm_routes = ARRAY_SIZE(mt8195_mt6359_demo_routes),
-#endif
-
 };
 
-#ifdef CONFIG_ARCH_ADLINKTECH
-struct snd_soc_dai_link_component wm8960_codec = {
-    .name = WM8960_DEV0_NAME,
-    .dai_name = WM8960_CODEC_DAI,
-};
-#endif
 static int mt8195_mt6359_demo_dev_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt8195_mt6359_demo_soc_card;
@@ -797,20 +774,32 @@ static int mt8195_mt6359_demo_dev_probe(struct platform_device *pdev)
 	int ret, i;
 #ifdef CONFIG_ARCH_ADLINKTECH
 	struct device_node *np = pdev->dev.of_node;
+	struct device_node *tlv320_node, *wm8960_node;
+	bool tlv320_available, wm8960_available;
+	tlv320_node = of_find_node_by_name(NULL, "tlv320aic310x");
+	wm8960_node = of_find_node_by_name(NULL, "wm8960");
+	tlv320_available = of_device_is_available(tlv320_node);
+	wm8960_available = of_device_is_available(wm8960_node);
 #endif
 	card->dev = &pdev->dev;
 #ifdef CONFIG_ARCH_ADLINKTECH
-	if (of_property_read_bool(np, "wm8960-audio-on")){ 
-		printk("%s, wm8960-audio-on is set\n",__func__);
-		mt8195_mt6359_demo_dai_links[DAI_LINK_DL_SRC_BE].codecs = &wm8960_codec;
-		mt8195_mt6359_demo_dai_links[DAI_LINK_DL_SRC_BE].num_codecs = 1;
-		mt8195_mt6359_demo_dai_links[DAI_LINK_ETDM2_IN_BE].codecs = &wm8960_codec;
-		mt8195_mt6359_demo_dai_links[DAI_LINK_ETDM2_IN_BE].num_codecs = 1;
-		card->dapm_widgets = mt8195_mt6359_demo_widgets;
-		card->num_dapm_widgets = ARRAY_SIZE(mt8195_mt6359_demo_widgets);
-		card->dapm_routes = mt8195_mt6359_demo_routes;
-		card->num_dapm_routes = ARRAY_SIZE(mt8195_mt6359_demo_routes);
-	}
+    struct codec_config *config;
+
+    if (tlv320_available) {
+        config = &codecs_config[CODEC_TLV320];
+    } else if (wm8960_available) {
+        config = &codecs_config[CODEC_WM8960];
+    } else {
+        // error handling
+    }
+
+    mt8195_mt6359_demo_dai_links[DAI_LINK_DL_SRC_BE].codecs = config->codecs;
+    mt8195_mt6359_demo_dai_links[DAI_LINK_DL_SRC_BE].num_codecs = 1;
+    mt8195_mt6359_demo_dai_links[DAI_LINK_ETDM2_IN_BE].codecs = config->codecs;
+    mt8195_mt6359_demo_dai_links[DAI_LINK_ETDM2_IN_BE].num_codecs = 1;
+
+    card->dapm_routes = config->routes;
+    card->num_dapm_routes = config->num_routes;
 #endif
 	
 	ret = set_card_codec_info(card);

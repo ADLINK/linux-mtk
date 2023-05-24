@@ -890,6 +890,20 @@ static int wm8960_hw_params(struct snd_pcm_substream *substream,
 
 	wm8960_unmute(component);
 
+    /*
+     * codec ADCLRC pin configured as GPIO, DACLRC pin is used as a frame
+     * clock for ADCs and DACs
+     */
+    snd_soc_component_update_bits(component, WM8960_IFACE2, 1<<6, 1<<6);
+
+    snd_soc_component_update_bits(component, WM8960_ADDCTL1, 3, 3);
+    /*
+     * route left channel to right channel in default.
+     */
+    snd_soc_component_update_bits(component, WM8960_ADDCTL1, 3<<2, 1<<2);
+    /*unmute*/
+    snd_soc_component_update_bits(component, WM8960_DACCTL1, 0x8, 0);
+
 	if (!wm8960->is_stream_in_use[!tx])
 		return wm8960_configure_clocking(component);
 

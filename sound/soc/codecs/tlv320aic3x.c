@@ -27,7 +27,6 @@
  *  Hence the machine layer should disable unsupported inputs/outputs by
  *  snd_soc_dapm_disable_pin(codec, "MONO_LOUT"), etc.
  */
-
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
@@ -1581,6 +1580,14 @@ static int aic3x_init(struct snd_soc_component *component)
 	switch (aic3x->model) {
 	case AIC3X_MODEL_3X:
 	case AIC3X_MODEL_33:
+#ifdef CONFIG_ARCH_ADLINKTECH
+		snd_soc_component_write(component, DACL1_2_HPLOUT_VOL, 0x80);
+		snd_soc_component_write(component, DACL1_2_HPROUT_VOL, 0x80);
+		snd_soc_component_write(component, MIC3LR_2_LADC_CTRL, 0x0f);
+		snd_soc_component_write(component, LAGC_CTRL_A, 0x80);
+		snd_soc_component_write(component, RAGC_CTRL_A, 0x80);
+        break;
+#endif
 	case AIC3X_MODEL_3106:
 		aic3x_mono_init(component);
 		break;

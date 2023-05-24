@@ -338,6 +338,14 @@
                         gpio-controller;
         };
 
+        tlv320aic310x: tlv320aic310x@18 {
+			compatible = "ti,tlv320aic3x";
+			#sound-dai-cells = <0>;
+			reg = <0x18>;
+			ai3x-micbias-vg = <2>; /* MICBIAS_2_5V */
+			status = "disabled";
+        };
+
         wm8960: wm8960@1a {
 		compatible = "wlf,wm8960";
 		#sound-dai-cells = <0>;
@@ -810,7 +818,7 @@
 	usb_p0_p2_mux_sel {
 		gpio-hog;
 		gpios = <3 GPIO_ACTIVE_HIGH>;
-                output-high;  //USB P2 <--> SMARC OTG
+		output-high;  //USB P2 <--> SMARC OTG
 		line-name = "USB_P0_P2_MUX_SEL";
 	};
 
