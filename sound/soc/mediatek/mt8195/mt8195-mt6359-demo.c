@@ -43,8 +43,10 @@ static const struct snd_soc_dapm_widget
 };
 
 static const struct snd_soc_dapm_route mt8195_mt6359_demo_routes[] = {
+#ifndef CONFIG_ARCH_ADLINKTECH
 	{ "Headphone Jack", NULL, "AIF1 Playback" },
 	{ "AIF1 Capture", NULL, "Headset Mic" },
+#endif
 };
 
 #ifdef CONFIG_ARCH_ADLINKTECH
@@ -762,8 +764,10 @@ static struct snd_soc_card mt8195_mt6359_demo_soc_card = {
 	.num_links = ARRAY_SIZE(mt8195_mt6359_demo_dai_links),
 	.dapm_widgets = mt8195_mt6359_demo_widgets,
 	.num_dapm_widgets = ARRAY_SIZE(mt8195_mt6359_demo_widgets),
+#ifndef CONFIG_ARCH_ADLINKTECH
 	.dapm_routes = mt8195_mt6359_demo_routes,
 	.num_dapm_routes = ARRAY_SIZE(mt8195_mt6359_demo_routes),
+#endif
 };
 
 static int mt8195_mt6359_demo_dev_probe(struct platform_device *pdev)
@@ -783,7 +787,7 @@ static int mt8195_mt6359_demo_dev_probe(struct platform_device *pdev)
 #endif
 	card->dev = &pdev->dev;
 #ifdef CONFIG_ARCH_ADLINKTECH
-    struct codec_config *config;
+    struct codec_config *config = NULL;
 
     if (tlv320_available) {
         config = &codecs_config[CODEC_TLV320];
@@ -792,14 +796,15 @@ static int mt8195_mt6359_demo_dev_probe(struct platform_device *pdev)
     } else {
         // error handling
     }
+    if(config != NULL) {
+        mt8195_mt6359_demo_dai_links[DAI_LINK_DL_SRC_BE].codecs = config->codecs;
+        mt8195_mt6359_demo_dai_links[DAI_LINK_DL_SRC_BE].num_codecs = 1;
+        mt8195_mt6359_demo_dai_links[DAI_LINK_ETDM2_IN_BE].codecs = config->codecs;
+        mt8195_mt6359_demo_dai_links[DAI_LINK_ETDM2_IN_BE].num_codecs = 1;
 
-    mt8195_mt6359_demo_dai_links[DAI_LINK_DL_SRC_BE].codecs = config->codecs;
-    mt8195_mt6359_demo_dai_links[DAI_LINK_DL_SRC_BE].num_codecs = 1;
-    mt8195_mt6359_demo_dai_links[DAI_LINK_ETDM2_IN_BE].codecs = config->codecs;
-    mt8195_mt6359_demo_dai_links[DAI_LINK_ETDM2_IN_BE].num_codecs = 1;
-
-    card->dapm_routes = config->routes;
-    card->num_dapm_routes = config->num_routes;
+        card->dapm_routes = config->routes;
+        card->num_dapm_routes = config->num_routes;
+    }
 #endif
 	
 	ret = set_card_codec_info(card);
