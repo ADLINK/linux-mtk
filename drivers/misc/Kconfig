@@ -470,6 +470,14 @@ config HISI_HIKEY_USB
 	  switching between the dual-role USB-C port and the USB-A host ports
 	  using only one USB controller.
 
+config ADLINK_SKU_PCB_INFO
+	tristate "ADLINK SKU and PCB Information driver"
+	default n
+	help
+	  Say Y here if you want to enable a driver for reading SKU and PCB information.
+	  This is not linked to any specific hardware category and is a general driver.
+
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
