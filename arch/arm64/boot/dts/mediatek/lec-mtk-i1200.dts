@@ -343,18 +343,18 @@
 			#sound-dai-cells = <0>;
 			reg = <0x18>;
 			ai3x-micbias-vg = <2>; /* MICBIAS_2_5V */
-			status = "disabled";
+			status = "okay";
         };
 
         wm8960: wm8960@1a {
-		compatible = "wlf,wm8960";
-		#sound-dai-cells = <0>;
-		reg = <0x1a>;
-		clocks = <&topckgen CLK_TOP_I2SO1_MCK>;
-		clock-names = "top_i2so1_mck";
-		wlf,shared-lrclk;
-		wlf,hp-cfg = <2 3 3>;
-		status = "disabled";
+            compatible = "wlf,wm8960";
+            #sound-dai-cells = <0>;
+            reg = <0x1a>;
+            clocks = <&topckgen CLK_TOP_I2SO1_MCK>;
+            clock-names = "top_i2so1_mck";
+            wlf,shared-lrclk;
+            wlf,hp-cfg = <2 3 3>;
+            status = "disabled";
         };
 };
 
@@ -1380,6 +1380,15 @@
 			sound-dai = <&hdmi0>;
 		};
 	};
+
+	dai-link-1 {
+		sound-dai = <&afe>;
+		dai-link-name = "ETDM1_OUT_BE";
+		codec-0 {
+			sound-dai = <&tlv320aic310x>;
+		};
+	};
+
 };
 
 &mfg0 {
