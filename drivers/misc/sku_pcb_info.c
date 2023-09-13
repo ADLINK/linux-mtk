@@ -35,7 +35,8 @@ struct sku_info skus[] = {
     {4, "LEC-MTK-I1200-4G-64G-BW-CT(400E)"},
     {5, "LEC-MTK-I1200-8G-64G-BW-CT(500E)"},
     {6, "LEC-MTK-I1200-4G-64G-BW-ER(600E)"},
-    {7, "LEC-MTK-I1200-8G-64G-BW-ER(TBD)"}
+    {7, "LEC-MTK-I1200-8G-64G-BW-ER(700E)"},
+    {8, "LEC-MTK-I1200-8G-128G-BW-ER(800E)"}
 };
 
 static struct kobject *kobj_ref;
