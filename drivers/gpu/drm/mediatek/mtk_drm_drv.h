@@ -31,9 +31,10 @@ struct mtk_drm_route {
 };
 
 struct mtk_mmsys_driver_data {
-	const resource_size_t io_start;
 	const unsigned int *main_path;
 	unsigned int main_len;
+	const unsigned int *main_dualpipe_path;
+	unsigned int main_dualpipe_len;
 	const unsigned int *main_subpipe_path;
 	unsigned int main_subpipe_len;
 	const unsigned int *ext_path;
@@ -42,15 +43,12 @@ struct mtk_mmsys_driver_data {
 	unsigned int third_len;
 	const struct mtk_drm_route *conn_routes;
 	unsigned int conn_routes_num;
+	const struct mtk_drm_route *conn_subpipe_routes;
+	unsigned int conn_subpipe_routes_num;
 
 	bool shadow_register;
 	unsigned int mmsys_id;
 	unsigned int mmsys_dev_num;
-};
-
-struct mtk_mmsys_match_data {
-	unsigned short num_drv_data;
-	const struct mtk_mmsys_driver_data *drv_data[];
 };
 
 struct mtk_drm_private {
@@ -58,6 +56,8 @@ struct mtk_drm_private {
 	struct device *dma_dev;
 	bool mtk_drm_bound;
 	bool drm_master;
+	bool is_dual_pipe;
+	bool is_sub_pipe;
 	struct device *dev;
 	struct device_node *mutex_node;
 	struct device *mutex_dev;
@@ -86,5 +86,5 @@ extern struct platform_driver mtk_ethdr_driver;
 extern struct platform_driver mtk_mdp_rdma_driver;
 extern struct platform_driver mtk_dpintf_driver;
 extern struct platform_driver mtk_dp_tx_driver;
-
+extern struct platform_driver mtk_disp_padding_driver;
 #endif /* MTK_DRM_DRV_H */

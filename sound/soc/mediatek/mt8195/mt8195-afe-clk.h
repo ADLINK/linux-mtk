@@ -13,6 +13,8 @@
 enum {
 	/* xtal */
 	MT8195_CLK_XTAL_26M,
+	/* pll */
+	MT8195_CLK_APMIXED_HDMIRX_APLL,
 	/* divider */
 	MT8195_CLK_TOP_APLL1,
 	MT8195_CLK_TOP_APLL2,
@@ -32,6 +34,7 @@ enum {
 	MT8195_CLK_TOP_I2SI1_M_SEL,
 	MT8195_CLK_TOP_I2SI2_M_SEL,
 	/* clock gate */
+	MT8195_CLK_TOP_MPHONE_SLAVE_B,
 	MT8195_CLK_INFRA_AO_AUDIO_26M_B,
 	MT8195_CLK_SCP_ADSP_AUDIODSP,
 	MT8195_CLK_AUD_AFE,
@@ -55,6 +58,7 @@ enum {
 	MT8195_CLK_AUD_HDMI_OUT,
 	MT8195_CLK_AUD_ASRC11,
 	MT8195_CLK_AUD_ASRC12,
+	MT8195_CLK_AUD_MULTI_IN,
 	MT8195_CLK_AUD_A1SYS,
 	MT8195_CLK_AUD_A2SYS,
 	MT8195_CLK_AUD_PCMIF,
@@ -103,7 +107,6 @@ int mt8195_afe_get_mclk_source_clk_id(int sel);
 int mt8195_afe_get_mclk_source_rate(struct mtk_base_afe *afe, int apll);
 int mt8195_afe_get_default_mclk_source_by_rate(int rate);
 int mt8195_afe_init_clock(struct mtk_base_afe *afe);
-void mt8195_afe_deinit_clock(struct mtk_base_afe *afe);
 int mt8195_afe_enable_clk(struct mtk_base_afe *afe, struct clk *clk);
 void mt8195_afe_disable_clk(struct mtk_base_afe *afe, struct clk *clk);
 int mt8195_afe_prepare_clk(struct mtk_base_afe *afe, struct clk *clk);

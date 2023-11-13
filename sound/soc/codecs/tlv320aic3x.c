@@ -27,6 +27,7 @@
  *  Hence the machine layer should disable unsupported inputs/outputs by
  *  snd_soc_dapm_disable_pin(codec, "MONO_LOUT"), etc.
  */
+
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>

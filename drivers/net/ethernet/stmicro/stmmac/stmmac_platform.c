@@ -7,6 +7,7 @@
 
   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 *******************************************************************************/
+
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/module.h>
@@ -533,6 +534,9 @@ stmmac_probe_config_dt(struct platform_device *pdev, u8 *mac)
 	plat->en_tx_lpi_clockgating =
 		of_property_read_bool(np, "snps,en-tx-lpi-clockgating");
 
+	plat->en_rx_lpi_clockgating =
+		of_property_read_bool(np, "snps,en-rx-lpi-clockgating");
+
 	/* Set the maxmtu to a default of JUMBO_LEN in case the
 	 * parameter is not present in the device tree.
 	 */
@@ -881,7 +885,13 @@ static int __maybe_unused stmmac_pltfr_noirq_resume(struct device *dev)
 		if (ret)
 			return ret;
 
-		stmmac_init_tstamp_counter(priv, priv->systime_flags);
+		ret = clk_prepare_enable(priv->plat->clk_ptp_ref);
+		if (ret < 0) {
+			netdev_warn(priv->dev,
+				    "failed to enable PTP reference clock: %pe\n",
+				    ERR_PTR(ret));
+			return ret;
+		}
 	}
 
 	return 0;

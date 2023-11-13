@@ -804,7 +804,6 @@ static const struct panel_desc armadeus_st0700_adapt = {
 	.bus_flags = DRM_BUS_FLAG_DE_HIGH | DRM_BUS_FLAG_PIXDATA_SAMPLE_NEGEDGE,
 };
 
-
 static const struct drm_display_mode auo_b101aw03_mode = {
 	.clock = 51450,
 	.hdisplay = 1024,
@@ -3984,7 +3983,6 @@ static const struct panel_desc_dsi auo_b101uan01v7 = {
 	.lanes = 4,
 };
 #endif
-
 static const struct drm_display_mode auo_b080uan01_mode = {
 	.clock = 154500,
 	.hdisplay = 1200,

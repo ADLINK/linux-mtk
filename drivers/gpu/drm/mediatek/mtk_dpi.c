@@ -30,6 +30,7 @@
 #include <drm/drm_simple_kms_helper.h>
 
 #include "mtk_disp_drv.h"
+#include "mtk_drm_drv.h"
 #include "mtk_dpi_regs.h"
 #include "mtk_mt8195_dpi_regs.h"
 #include "mtk_drm_ddp_comp.h"
@@ -105,6 +106,7 @@ struct mtk_dpi {
 	u32 output_fmt;
 	int refcount;
 	bool oob_hpd;
+	bool is_2p_input;
 };
 
 static inline struct mtk_dpi *bridge_to_dpi(struct drm_bridge *b)
@@ -398,12 +400,13 @@ static void mtk_dpi_config_swap_input(struct mtk_dpi *dpi, bool enable)
 
 static void mtk_dpi_config_2n_h_fre(struct mtk_dpi *dpi)
 {
-	mtk_dpi_mask(dpi, dpi->conf->reg_h_fre_con, H_FRE_2N, H_FRE_2N);
+	if (dpi->conf->reg_h_fre_con)
+		mtk_dpi_mask(dpi, dpi->conf->reg_h_fre_con, H_FRE_2N, H_FRE_2N);
 }
 
 static void mtk_dpi_config_disable_edge(struct mtk_dpi *dpi)
 {
-	if (dpi->conf->edge_sel_en)
+	if (dpi->conf->reg_h_fre_con && dpi->conf->edge_sel_en)
 		mtk_dpi_mask(dpi, dpi->conf->reg_h_fre_con, 0, EDGE_SEL_EN);
 }
 
@@ -660,7 +663,7 @@ static int mtk_dpi_set_display_mode(struct mtk_dpi *dpi,
 	mtk_dpi_config_channel_swap(dpi, dpi->channel_swap);
 	mtk_dpi_config_color_format(dpi, dpi->color_format);
 	if (dpi->conf->is_dpintf) {
-		mtk_dpi_mask(dpi, DPI_CON, DPINTF_INPUT_2P_EN,
+		mtk_dpi_mask(dpi, DPI_CON, dpi->is_2p_input ? DPINTF_INPUT_2P_EN : 0,
 			     DPINTF_INPUT_2P_EN);
 	} else {
 		mtk_dpi_config_yc_map(dpi, dpi->yc_map);
@@ -670,7 +673,7 @@ static int mtk_dpi_set_display_mode(struct mtk_dpi *dpi,
 		if (dpi->conf->is_internal_hdmi) {
 			mtk_dpi_mask(dpi, DPI_CON, DPI_OUTPUT_1T1P_EN,
 					DPI_OUTPUT_1T1P_EN);
-			mtk_dpi_mask(dpi, DPI_CON, DPI_INPUT_2P_EN,
+			mtk_dpi_mask(dpi, DPI_CON, dpi->is_2p_input ? DPI_INPUT_2P_EN : 0,
 					DPI_INPUT_2P_EN);
 		} else {
 			mtk_dpi_dual_edge(dpi);
@@ -855,11 +858,19 @@ int mtk_dpi_encoder_index(struct device *dev)
 	return encoder_index;
 }
 
+void mtk_dpi_set_2p_input(struct device *dev, bool is_2p_input)
+{
+	struct mtk_dpi *dpi = dev_get_drvdata(dev);
+
+	dpi->is_2p_input = is_2p_input;
+}
+
 static int mtk_dpi_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mtk_dpi *dpi = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = data;
 	int ret;
+	int indicated_disp_path = -1;
 
 	ret = drm_simple_encoder_init(drm_dev, &dpi->encoder,
 				      DRM_MODE_ENCODER_TMDS);
@@ -868,7 +879,24 @@ static int mtk_dpi_bind(struct device *dev, struct device *master, void *data)
 		return ret;
 	}
 
-	dpi->encoder.possible_crtcs = mtk_drm_find_possible_crtc_by_comp(drm_dev, dpi->dev);
+	if (of_find_property(dev->of_node, "mediatek,indicated-display-path", &ret)) {
+		ret = of_property_read_u32(dev->of_node,
+					   "mediatek,indicated-display-path",
+					   &indicated_disp_path);
+		if (ret) {
+			dev_err(dev, "Failed to get indicated-display-path id\n");
+			return ret;
+		}
+		if (indicated_disp_path < 0 || indicated_disp_path >= MAX_CRTC) {
+			dev_err(dev, "Wrong indicated-display-path id read from dts !\n");
+			indicated_disp_path = -1;
+		}
+	}
+
+	if (indicated_disp_path == -1)
+		dpi->encoder.possible_crtcs = mtk_drm_find_possible_crtc_by_comp(drm_dev, dpi->dev);
+	else
+		dpi->encoder.possible_crtcs = (1 << indicated_disp_path);
 
 	ret = drm_bridge_attach(&dpi->encoder, &dpi->bridge, NULL,
 				DRM_BRIDGE_ATTACH_NO_CONNECTOR);
@@ -1076,7 +1104,6 @@ static const struct mtk_dpi_conf mt8365_conf = {
 static const struct mtk_dpi_conf mt8195_conf = {
 	.cal_factor = mt8195_calculate_factor,
 	.max_clock_khz = 594000,
-	.reg_h_fre_con = 0xe0,
 	.output_fmts = mt8183_output_fmts,
 	.num_output_fmts = ARRAY_SIZE(mt8183_output_fmts),
 	.is_ck_de_pol = true,
@@ -1171,7 +1198,6 @@ static int mtk_dpi_probe(struct platform_device *pdev)
 
 		return ret;
 	}
-
 
 	dpi->dpi_ck_cg = devm_clk_get_optional(dev, "ck_cg");
 	if (IS_ERR(dpi->dpi_ck_cg)) {

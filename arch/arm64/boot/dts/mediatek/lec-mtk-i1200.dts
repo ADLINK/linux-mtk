@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: (GPL-2.0 OR MIT)
 /*
- * Copyright (C) 2021 BayLibre, SAS.
- * Author: Fabien Parent <fparent@baylibre.com>
+ * Copyright (C) 2023 MediaTek Inc.
+ * Author: Ben Lok <ben.lok@mediatek.com>
  */
 /dts-v1/;
-#include "mt8195.dtsi"
+#include "mt8195-iot-usb.dtsi"
 #include "mt6359.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
@@ -15,7 +15,7 @@
 
 / {
 	model = "Adlinktech LEC-MTK-I1200 board";
-	compatible = "mediatek,mt8195-demo", "mediatek,mt8195";
+	compatible = "mediatek,mt8395-evk", "mediatek,mt8195";
 
 	aliases {
 		serial0 = &uart0;
@@ -74,6 +74,21 @@
 			compatible = "shared-dma-pool";
 			reg = <0 0x60000000 0 0x1100000>;
 			no-map;
+		};
+
+		apu_reserve_memory: apu-reserve-memory{
+			compatible = "shared-dma-pool";
+			size = <0 0x1400000>; //20 MB
+			alignment = <0 0x10000>;
+			reg = <0 0x62000000 0 0x1400000>;
+
+		};
+
+		vpu_reserve_memory: vpu-reserve-memory {
+			compatible = "shared-dma-pool";
+			size = <0 0x1400000>; //20 MB
+			alignment = <0 0x10000>;
+			reg = <0 0x53000000 0 0x1400000>;
 		};
 	};
 
@@ -214,7 +229,7 @@
                 clock-output-names = "clk20m";
         };
 	
-	backlight_lcd0: backlight_lcd0 {
+	backlight_lcd0: backlight-lcd0 {
 		compatible = "pwm-backlight";
                 pwms = <&disp_pwm0 0 500000>;
 		enable-gpios = <&pio 95 GPIO_ACTIVE_HIGH>;
@@ -223,7 +238,7 @@
 		default-brightness-level = <576>;
 	};
 
-	backlight_lcd1: backlight_lcd1 {
+	backlight_lcd1: backlight-lcd1 {
 		compatible = "pwm-backlight";
 		pwms = <&disp_pwm1 0 500000>;
 		enable-gpios = <&pio 61 GPIO_ACTIVE_HIGH>;
@@ -536,6 +551,9 @@
 	mt6360: mt6360@34 {
 		compatible = "mediatek,mt6360";
 		reg = <0x34>;
+		pinctrl-0 = <&mt6360_pins>;
+		pinctrl-names = "default";
+		interrupts = <101 IRQ_TYPE_EDGE_FALLING>;
 	};
 };
 
@@ -719,6 +737,7 @@
 	status = "disabled";
 	#address-cells = <1>;
 	#size-cells = <0>;
+	poweron-in-hs-mode = <0>;
 	dsi_panel@0 {
 		compatible = "auo,b101uan01v7";
 		reg = <0>;
@@ -933,8 +952,7 @@
 		pins {
 			pinmux = <PINMUX_GPIO8__FUNC_SDA0>,
 				 <PINMUX_GPIO9__FUNC_SCL0>;
-			bias-pull-up;
-			mediatek,rsel = <MTK_PULL_SET_RSEL_111>;
+			bias-pull-up = <MTK_PULL_SET_RSEL_111>;
 			mediatek,drive-strength-adv = <7>;
 		};
 	};
@@ -943,8 +961,7 @@
 		pins {
 			pinmux = <PINMUX_GPIO10__FUNC_SDA1>,
 				 <PINMUX_GPIO11__FUNC_SCL1>;
-			bias-pull-up;
-			mediatek,rsel = <MTK_PULL_SET_RSEL_111>;
+			bias-pull-up = <MTK_PULL_SET_RSEL_111>;
 			mediatek,drive-strength-adv = <7>;
 		};
 	};
@@ -953,8 +970,7 @@
 		pins {
 			pinmux = <PINMUX_GPIO12__FUNC_SDA2>,
 				 <PINMUX_GPIO13__FUNC_SCL2>;
-			bias-pull-up;
-			mediatek,rsel = <MTK_PULL_SET_RSEL_111>;
+			bias-pull-up = <MTK_PULL_SET_RSEL_111>;
 			mediatek,drive-strength-adv = <7>;
 		};
 	};
@@ -963,8 +979,7 @@
 		pins {
 			pinmux = <PINMUX_GPIO14__FUNC_SDA3>,
 				 <PINMUX_GPIO15__FUNC_SCL3>;
-			bias-pull-up;
-			mediatek,rsel = <MTK_PULL_SET_RSEL_111>;
+			bias-pull-up = <MTK_PULL_SET_RSEL_111>;
 			mediatek,drive-strength-adv = <7>;
 		};
 	};
@@ -973,8 +988,7 @@
 		pins {
 			pinmux = <PINMUX_GPIO16__FUNC_SDA4>,
 				 <PINMUX_GPIO17__FUNC_SCL4>;
-			bias-pull-up;
-			mediatek,rsel = <MTK_PULL_SET_RSEL_111>;
+			bias-pull-up = <MTK_PULL_SET_RSEL_111>;
 			mediatek,drive-strength-adv = <7>;
 		};
 	};
@@ -983,7 +997,7 @@
 			pinmux = <PINMUX_GPIO25__FUNC_SDA6>,
 				 <PINMUX_GPIO26__FUNC_SCL6>;
 			bias-pull-up;
-			mediatek,rsel = <MTK_PULL_SET_RSEL_111>;
+
 		};
 	};
 	
@@ -1116,6 +1130,14 @@
 				 <PINMUX_GPIO20__FUNC_PERSTN>,
 				 <PINMUX_GPIO21__FUNC_CLKREQN>;
 			bias-pull-up;
+		};
+	};
+
+	pcie0_pins_idle: pcie0idle {
+		pins {
+			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			bias-disable;
+			output-low;
 		};
 	};
 
@@ -1346,11 +1368,6 @@
 	};
 };
 
-&gpu {
-	supply-names = "mali";
-	mali-supply = <&mt6315_7_vbuck1>;
-};
-
 &afe {
 	#sound-dai-cells = <0>;
 	memory-region = <&snd_dma_mem_reserved>;
@@ -1366,7 +1383,7 @@
 };
 
 &sound {
-	compatible = "mediatek,mt8195_mt6359_demo";
+	compatible = "mediatek,mt8395-evk";
 	model = "mt8195_demo";
 	pinctrl-names = "default";
 	pinctrl-0 = <&aud_pins_default>;
@@ -1396,8 +1413,9 @@
 };
 
 &pcie0 {
-	pinctrl-names = "default";
+	pinctrl-names = "default", "idle";
 	pinctrl-0 = <&pcie0_pins_default>;
+	pinctrl-1 = <&pcie0_pins_idle>;
 	status = "okay";
 };
 
@@ -1413,46 +1431,6 @@
 };
 
 &pciephy {
-	status = "okay";
-};
-
-&apusys_rv {
-	status = "okay";
-};
-
-&apu_top_3 {
-	//vapu-supply = <&mt6359_vproc1_reg>;
-	vapu-supply = <&mt6359_vproc1_buck_reg>;
-	//vmdla-supply = <&mt6359_vproc2_reg>;
-	vmdla-supply = <&mt6359_vproc2_buck_reg>;
-	//vsram-supply = <&mt6359_vsram_md_reg>;
-	vsram-supply = <&mt6359_vsram_md_ldo_reg>;
-
-	operating-points-v2 = <&opp_table_apu_conn>,
-			      <&opp_table_apu_rv>,
-			      <&opp_table_vpu>,
-			      <&opp_table_dla>;
-
-	status = "okay";
-};
-
-&mdla_devfreq {
-	power_table = <581>,
-		      <448>,
-		      <320>,
-		      <208>,
-		      <127>,
-		      <96>;
-	status = "okay";
-};
-
-&vpu_devfreq {
-	power_table = <493>,
-		      <402>,
-		      <295>,
-		      <200>,
-		      <119>,
-		      <87>;
 	status = "okay";
 };
 
@@ -1484,14 +1462,11 @@
 
 &disp_dpi1 {
 	status = "okay";
+	mediatek,indicated-display-path = <1>;
 };
 
 &hdmi0 {
 	status = "okay";
 };
 
-&ovl1 {
-	/* Enable dual-pipe (4K60Hz output for vdosys0) by default */
-	mediatek,enable-dualpipe;
-};
 

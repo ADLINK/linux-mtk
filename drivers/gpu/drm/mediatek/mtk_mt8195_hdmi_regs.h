@@ -13,7 +13,7 @@
 #define AIF_PKT02 (31, 0)
 #define AIF_PKT03 (23, 0)
 
-#define AIP_CTRL BIT(10)
+#define AIP_CTRL 0x400
 #define AIP_CTS_SVAL 0x408
 #define AIP_DOWNSAMPLE_CTRL 0x41C
 #define AIP_I2S_CHST0 0x414
@@ -83,8 +83,8 @@
 #define C_SD0 (0x0)
 #define C_SD1 BIT(4)
 #define C_SD2 BIT(9)
-#define C_SD3 GENMASK(14, 12)
-#define C_SD4 BIT(19)
+#define C_SD3 GENMASK(13, 12)
+#define C_SD4 BIT(18)
 #define C_SD5 (0x5 << 20)
 #define C_SD6 GENMASK(26, 25)
 #define C_SD7 GENMASK(30, 28)
@@ -164,7 +164,6 @@
 #define HDMI2_OFF (0)
 #define HDMI2_ON BIT(2)
 
-#define HDMITX_CONFIG 0x900
 #define HDMITX_SW_HPD BIT(29)
 #define HDMITX_SW_HPD_SHIFT (29)
 #define HDMITX_SW_RSTB BIT(31)
@@ -325,5 +324,12 @@
 #define WR_2UI_LOCK BIT(2)
 #define WR_2UI_UNLOCK 0
 #define WS_HIGH BIT(11)
+
+#define ABIST_ENABLE (1 << 31)
+#define ABIST_VIDEO_FORMAT_MASKBIT (0x3F << 16)
+#define ABIST_VIDEO_FORMAT_720x480P (0x2 << 16)
+#define ABIST_VIDEO_FORMAT_720P50 (0xC << 16)
+#define ABIST_VIDEO_FORMAT_1080P60 (0xA << 16)
+#define ABIST_VIDEO_FORMAT_3840x2160P30 (0x19 << 16)
 
 #endif /* _MTK_HDMI_REGS_H */

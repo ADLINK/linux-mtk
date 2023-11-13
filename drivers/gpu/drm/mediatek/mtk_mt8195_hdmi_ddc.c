@@ -422,17 +422,26 @@ static unsigned char fg_ddc_data_write(struct mtk_hdmi_ddc *ddc,
 static int mtk_hdmi_ddc_xfer(struct i2c_adapter *adapter, struct i2c_msg *msgs,
 			     int num)
 {
-	struct mtk_hdmi_ddc *ddc = adapter->algo_data;
-	struct device *dev = adapter->dev.parent;
+	struct mtk_hdmi_ddc *ddc;
+	struct device *dev;
 	int ret;
 	int i;
 	unsigned char offset = 0;
 
-	if (!ddc)
+	if (!adapter || !msgs)
+		return -EINVAL;
+
+	ddc = adapter->algo_data;
+	dev = adapter->dev.parent;
+
+	if (!ddc || !ddc->regs)
 		return -EINVAL;
 
 	for (i = 0; i < num; i++) {
 		struct i2c_msg *msg = &msgs[i];
+
+		if (!msg->buf)
+			return -EINVAL;
 
 		if (msg->flags & I2C_M_RD) {
 			/* The underlying DDC hardware always issue a write request
@@ -536,6 +545,9 @@ static int mtk_hdmi_ddc_remove(struct platform_device *pdev)
 static const struct of_device_id mtk_hdmi_ddc_match[] = {
 	{
 		.compatible = "mediatek,mt8195-hdmi-ddc",
+	},
+	{
+		.compatible = "mediatek,mt8188-hdmi-ddc",
 	},
 	{},
 };

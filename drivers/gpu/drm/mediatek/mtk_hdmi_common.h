@@ -31,14 +31,6 @@
 #include "mtk_cec.h"
 #include "mtk_hdmi.h"
 
-struct mtk_hdmi_conf {
-	bool tz_disabled;
-	bool cea_modes_only;
-	bool is_mt8195;
-	bool low_power;
-	unsigned long max_mode_clock;
-};
-
 enum hdmi_color_depth { HDMI_8_BIT, HDMI_10_BIT, HDMI_12_BIT, HDMI_16_BIT };
 
 enum hdmi_aud_input_type {
@@ -154,6 +146,11 @@ enum mtk_hdmi_clk_id_mt8183 {
 extern const char *const mtk_hdmi_clk_names_mt8183[MTK_MT8183_HDMI_CLK_COUNT];
 extern const char *const mtk_hdmi_clk_names_mt8195[MTK_MT8195_HDMI_CLK_COUNT];
 
+extern struct drm_display_mode mode_720x480_60hz_4v3;
+extern struct drm_display_mode mode_1280x720_50hz_16v9;
+extern struct drm_display_mode mode_1920x1080_60hz_16v9;
+extern struct drm_display_mode mode_3840x2160_30hz_16v9;
+
 enum hdmi_hpd_state {
 	HDMI_PLUG_OUT = 0,
 	HDMI_PLUG_IN_AND_SINK_POWER_ON,
@@ -217,6 +214,18 @@ struct mtk_hdmi {
 	struct drm_bridge *next_bridge;
 };
 
+struct mtk_hdmi_conf {
+	bool tz_disabled;
+	bool cea_modes_only;
+	bool is_mt8195;
+	bool low_power;
+	unsigned long max_mode_clock;
+	const u32 reg_hdmitx_config_ofs;
+	void (*set_abist)(struct device *dev, enum mtk_abist_pattern mode_num);
+	void (*clk_enable)(struct mtk_hdmi *hdmi);
+	void (*clk_disable)(struct mtk_hdmi *hdmi);
+};
+
 struct mtk_hdmi *hdmi_ctx_from_bridge(struct drm_bridge *b);
 u32 mtk_hdmi_read(struct mtk_hdmi *hdmi, u32 offset);
 void mtk_hdmi_write(struct mtk_hdmi *hdmi, u32 offset, u32 val);
@@ -248,6 +257,9 @@ extern const struct drm_bridge_funcs mtk_mt8195_hdmi_bridge_funcs;
 extern const struct drm_bridge_funcs mtk_mt8183_hdmi_bridge_funcs;
 void mtk_hdmi_output_init_mt8183(struct mtk_hdmi *hdmi);
 void mtk_hdmi_output_init_mt8195(struct mtk_hdmi *hdmi);
+void mtk_hdmi_clk_enable(struct mtk_hdmi *hdmi);
+void mtk_hdmi_clk_disable(struct mtk_hdmi *hdmi);
+void mtk_hdmi_clk_enable_mt8195(struct mtk_hdmi *hdmi);
 void mtk_hdmi_clk_disable_mt8195(struct mtk_hdmi *hdmi);
 void mtk_hdmi_clk_disable_mt8183(struct mtk_hdmi *hdmi);
 void set_hdmi_codec_pdata_mt8195(struct hdmi_codec_pdata *codec_data);

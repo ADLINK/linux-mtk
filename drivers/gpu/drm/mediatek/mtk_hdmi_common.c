@@ -23,6 +23,34 @@ const char * const mtk_hdmi_clk_names_mt8183[MTK_MT8183_HDMI_CLK_COUNT] = {
 	[MTK_MT8183_HDMI_CLK_AUD_SPDIF] = "spdif",
 };
 
+/* 2 - 720x480@60Hz 4:3 */
+struct drm_display_mode mode_720x480_60hz_4v3 = {
+	DRM_MODE("720x480", DRM_MODE_TYPE_DRIVER, 27000, 720, 736,
+	798, 858, 0, 480, 489, 495, 525, 0,
+	DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC),
+	.picture_aspect_ratio = HDMI_PICTURE_ASPECT_4_3,};
+
+/* 19 - 1280x720@50Hz 16:9 */
+struct drm_display_mode mode_1280x720_50hz_16v9 = {
+	DRM_MODE("1280x720", DRM_MODE_TYPE_DRIVER, 74250, 1280, 1720,
+	1760, 1980, 0, 720, 725, 730, 750, 0,
+	DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+	.picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9,};
+
+/* 16 - 1920x1080@60Hz 16:9 */
+struct drm_display_mode mode_1920x1080_60hz_16v9 = {
+	DRM_MODE("1920x1080", DRM_MODE_TYPE_DRIVER, 148500, 1920, 2008,
+	2052, 2200, 0, 1080, 1084, 1089, 1125, 0,
+	DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+	.picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9,};
+
+/* 95 - 3840x2160@30Hz 16:9 */
+struct drm_display_mode mode_3840x2160_30hz_16v9 = {
+	DRM_MODE("3840x2160", DRM_MODE_TYPE_DRIVER, 297000, 3840, 4016,
+	4104, 4400, 0, 2160, 2168, 2178, 2250, 0,
+	DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+	.picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9,};
+
 struct mtk_hdmi *hdmi_ctx_from_bridge(struct drm_bridge *b)
 {
 	return container_of(b, struct mtk_hdmi, bridge);
@@ -155,6 +183,8 @@ struct edid *mtk_hdmi_bridge_get_edid(struct drm_bridge *bridge,
 		return NULL;
 
 	mtk_hdmi_show_EDID_raw_data(hdmi, edid);
+
+	memcpy(hdmi->conn.eld, connector->eld, drm_eld_size(connector->eld));
 
 	return edid;
 }
@@ -445,8 +475,9 @@ int mtk_drm_hdmi_remove(struct platform_device *pdev)
 	drm_bridge_remove(&hdmi->bridge);
 
 	if (hdmi->conf && hdmi->conf->is_mt8195)
-		mtk_hdmi_clk_disable_mt8195(hdmi);
+		mtk_hdmi_clk_disable(hdmi);
 	else
+		//TODO: define 8183 clk disable function in conf data
 		mtk_hdmi_clk_disable_mt8183(hdmi);
 	i2c_put_adapter(hdmi->ddc_adpt);
 
@@ -464,9 +495,20 @@ static const struct mtk_hdmi_conf mtk_hdmi_conf_mt8167 = {
 
 static const struct mtk_hdmi_conf mtk_hdmi_conf_mt8195 = {
 	.is_mt8195 = true,
-#ifdef CONFIG_DRM_MEDIATEK_HDMI_MT8195_SUSPEND_LOW_POWER
 	.low_power = true,
-#endif
+	.reg_hdmitx_config_ofs = 0x900,
+	.set_abist = set_abist_pattern,
+	.clk_enable = mtk_hdmi_clk_enable_mt8195,
+	.clk_disable = mtk_hdmi_clk_disable_mt8195,
+};
+
+static const struct mtk_hdmi_conf mtk_hdmi_conf_mt8188 = {
+	.is_mt8195 = true,
+	.low_power = true,
+	.reg_hdmitx_config_ofs = 0xEA0,
+	.set_abist = set_abist_pattern,
+	.clk_enable = mtk_hdmi_clk_enable_mt8195,
+	.clk_disable = mtk_hdmi_clk_disable_mt8195,
 };
 
 static const struct of_device_id mtk_drm_hdmi_of_ids[] = {
@@ -481,6 +523,9 @@ static const struct of_device_id mtk_drm_hdmi_of_ids[] = {
 	{ .compatible = "mediatek,mt8195-hdmi",
 	  .data = &mtk_hdmi_conf_mt8195,
 	},
+	{ .compatible = "mediatek,mt8188-hdmi",
+	  .data = &mtk_hdmi_conf_mt8188,
+	},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_drm_hdmi_of_ids);
@@ -493,7 +538,7 @@ static __maybe_unused int mtk_hdmi_suspend(struct device *dev)
 
 	if (hdmi->conf && hdmi->conf->is_mt8195 && hdmi->conf->low_power) {
 		if (hdmi->power_clk_enabled) {
-			mtk_hdmi_clk_disable_mt8195(hdmi);
+			mtk_hdmi_clk_disable(hdmi);
 			ret = pm_runtime_put_sync(hdmi->dev);
 			DRM_DEV_DEBUG_DRIVER(hdmi->dev, "[%s][%d],power domain off %d\n",
 					     __func__, __LINE__, ret);
@@ -502,6 +547,7 @@ static __maybe_unused int mtk_hdmi_suspend(struct device *dev)
 	} else {
 		device_set_wakeup_path(dev);
 		if (!hdmi->conf || !hdmi->conf->is_mt8195)
+			//TODO: define 8183 clk disable function in conf data
 			mtk_hdmi_clk_disable_mt8183(hdmi);
 	}
 	dev_dbg(dev, "hdmi suspend success!\n");
@@ -519,14 +565,14 @@ static __maybe_unused int mtk_hdmi_resume(struct device *dev)
 			ret = pm_runtime_get_sync(hdmi->dev);
 			DRM_DEV_DEBUG_DRIVER(hdmi->dev, "[%s][%d],power domain on %d\n",
 					    __func__, __LINE__, ret);
-			//TODO:
-			//mtk_hdmi_clk_enable(hdmi);
+			mtk_hdmi_clk_enable(hdmi);
 			hdmi->power_clk_enabled = true;
 		}
 
 	} else {
 		int ret = 0;
 		struct mtk_hdmi *hdmi = dev_get_drvdata(dev);
+		//TODO: define 8183 clk disable function in conf data
 		//mtk_hdmi_clk_enable(hdmi);
 		//TODO:
 		//if(!hdmi->conf || !hdmi->conf->is_mt8195)

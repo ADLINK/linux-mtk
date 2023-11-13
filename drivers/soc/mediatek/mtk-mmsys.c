@@ -4,11 +4,11 @@
  * Author: James Liao <jamesjj.liao@mediatek.com>
  */
 
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
 #include <linux/of_device.h>
-#include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/reset-controller.h>
 #include <linux/soc/mediatek/mtk-mmsys.h>
@@ -18,25 +18,21 @@
 #include "mt8167-mmsys.h"
 #include "mt8183-mmsys.h"
 #include "mt8186-mmsys.h"
+#include "mt8188-mmsys.h"
 #include "mt8192-mmsys.h"
 #include "mt8195-mmsys.h"
 #include "mt8365-mmsys.h"
 
 #define MMSYS_SW_RESET_PER_REG 32
 
-#define MMSYS_SW_RESET_PER_REG 32
+#define MAX_PROP_NAME_LENGTH 32
+
+#define MAX_CROSS_SYS_ASYNC_NUM 3
 
 static const struct mtk_mmsys_driver_data mt2701_mmsys_driver_data = {
 	.clk_driver = "clk-mt2701-mm",
 	.routes = mmsys_default_routing_table,
 	.num_routes = ARRAY_SIZE(mmsys_default_routing_table),
-};
-
-static const struct mtk_mmsys_match_data mt2701_mmsys_match_data = {
-	.num_drv_data = 1,
-	.drv_data = {
-		&mt2701_mmsys_driver_data,
-	},
 };
 
 static const struct mtk_mmsys_driver_data mt2712_mmsys_driver_data = {
@@ -45,33 +41,12 @@ static const struct mtk_mmsys_driver_data mt2712_mmsys_driver_data = {
 	.num_routes = ARRAY_SIZE(mmsys_default_routing_table),
 };
 
-static const struct mtk_mmsys_match_data mt2712_mmsys_match_data = {
-	.num_drv_data = 1,
-	.drv_data = {
-		&mt2712_mmsys_driver_data,
-	},
-};
-
 static const struct mtk_mmsys_driver_data mt6779_mmsys_driver_data = {
 	.clk_driver = "clk-mt6779-mm",
 };
 
-static const struct mtk_mmsys_match_data mt6779_mmsys_match_data = {
-	.num_drv_data = 1,
-	.drv_data = {
-		&mt6779_mmsys_driver_data,
-	},
-};
-
 static const struct mtk_mmsys_driver_data mt6797_mmsys_driver_data = {
 	.clk_driver = "clk-mt6797-mm",
-};
-
-static const struct mtk_mmsys_match_data mt6797_mmsys_match_data = {
-	.num_drv_data = 1,
-	.drv_data = {
-		&mt6797_mmsys_driver_data,
-	},
 };
 
 static const struct mtk_mmsys_driver_data mt8167_mmsys_driver_data = {
@@ -80,44 +55,22 @@ static const struct mtk_mmsys_driver_data mt8167_mmsys_driver_data = {
 	.num_routes = ARRAY_SIZE(mt8167_mmsys_routing_table),
 };
 
-static const struct mtk_mmsys_match_data mt8167_mmsys_match_data = {
-	.num_drv_data = 1,
-	.drv_data = {
-		&mt8167_mmsys_driver_data,
-	},
-};
-
 static const struct mtk_mmsys_driver_data mt8173_mmsys_driver_data = {
 	.clk_driver = "clk-mt8173-mm",
 	.routes = mmsys_default_routing_table,
 	.num_routes = ARRAY_SIZE(mmsys_default_routing_table),
 	.sw0_rst_offset = MT8183_MMSYS_SW0_RST_B,
 	.num_resets = 32,
-};
-
-static const struct mtk_mmsys_match_data mt8173_mmsys_match_data = {
-	.num_drv_data = 1,
-	.drv_data = {
-		&mt8173_mmsys_driver_data,
-	},
+	.need_gce = true,
 };
 
 static const struct mtk_mmsys_driver_data mt8183_mmsys_driver_data = {
 	.clk_driver = "clk-mt8183-mm",
 	.routes = mmsys_mt8183_routing_table,
 	.num_routes = ARRAY_SIZE(mmsys_mt8183_routing_table),
-	.mdp_routes = mmsys_mt8183_mdp_routing_table,
-	.mdp_num_routes = ARRAY_SIZE(mmsys_mt8183_mdp_routing_table),
-	.mdp_isp_ctrl = mmsys_mt8183_mdp_isp_ctrl_table,
 	.sw0_rst_offset = MT8183_MMSYS_SW0_RST_B,
 	.num_resets = 32,
-};
-
-static const struct mtk_mmsys_match_data mt8183_mmsys_match_data = {
-	.num_drv_data = 1,
-	.drv_data = {
-		&mt8183_mmsys_driver_data,
-	},
+	.need_gce = true,
 };
 
 static const struct mtk_mmsys_driver_data mt8186_mmsys_driver_data = {
@@ -128,11 +81,38 @@ static const struct mtk_mmsys_driver_data mt8186_mmsys_driver_data = {
 	.num_resets = 32,
 };
 
-static const struct mtk_mmsys_match_data mt8186_mmsys_match_data = {
-	.num_drv_data = 1,
-	.drv_data = {
-		&mt8186_mmsys_driver_data,
-	},
+
+static const struct mtk_mmsys_driver_data mt8188_vdosys0_driver_data = {
+	.clk_driver = "clk-mt8188-vdo0",
+	.routes = mmsys_mt8188_routing_table,
+	.num_routes = ARRAY_SIZE(mmsys_mt8188_routing_table),
+	.main_sys_w_h_configs = mmsys_mt8188_vdo0_main_sys_w_h_configs_list,
+	.num_main_sys_w_h_configs = ARRAY_SIZE(mmsys_mt8188_vdo0_main_sys_w_h_configs_list),
+	.cross_sys_w_h_configs = mmsys_mt8188_vdo0_cross_sys_w_h_configs_list,
+	.num_cross_sys_w_h_configs = ARRAY_SIZE(mmsys_mt8188_vdo0_cross_sys_w_h_configs_list),
+};
+
+static const struct mtk_mmsys_driver_data mt8188_vdosys1_driver_data = {
+	.clk_driver = "clk-mt8188-vdo1",
+	.routes = mmsys_mt8188_vdo1_routing_table,
+	.num_routes = ARRAY_SIZE(mmsys_mt8188_vdo1_routing_table),
+	.main_sys_w_h_configs = mmsys_mt8188_vdo1_main_sys_w_h_configs_list,
+	.num_main_sys_w_h_configs = ARRAY_SIZE(mmsys_mt8188_vdo1_main_sys_w_h_configs_list),
+	.cross_sys_w_h_configs = mmsys_mt8188_vdo1_cross_sys_w_h_configs_list,
+	.num_cross_sys_w_h_configs = ARRAY_SIZE(mmsys_mt8188_vdo1_cross_sys_w_h_configs_list),
+	.sw0_rst_offset = MT8188_VDO1_SW0_RST_B,
+	.num_resets = 96,
+	.need_gce = true,
+};
+
+static const struct mtk_mmsys_driver_data mt8188_vppsys0_driver_data = {
+	.clk_driver = "clk-mt8188-vpp0",
+	.is_vppsys = true,
+};
+
+static const struct mtk_mmsys_driver_data mt8188_vppsys1_driver_data = {
+	.clk_driver = "clk-mt8188-vpp1",
+	.is_vppsys = true,
 };
 
 static const struct mtk_mmsys_driver_data mt8192_mmsys_driver_data = {
@@ -142,48 +122,7 @@ static const struct mtk_mmsys_driver_data mt8192_mmsys_driver_data = {
 	.sw0_rst_offset = MT8186_MMSYS_SW0_RST_B,
 };
 
-static const struct mtk_mmsys_match_data mt8192_mmsys_match_data = {
-	.num_drv_data = 1,
-	.drv_data = {
-		&mt8192_mmsys_driver_data,
-	},
-};
-
-static const struct mtk_mmsys_driver_data mt8195_vppsys0_driver_data = {
-	.clk_driver = "clk-mt8195-vpp0",
-	.mdp_routes = mmsys_mt8195_mdp_routing_table,
-	.mdp_num_routes = ARRAY_SIZE(mmsys_mt8195_mdp_routing_table),
-	.mdp_mmsys_configs = mmsys_mt8195_mdp_vppsys_config_table,
-	.mdp_num_mmsys_configs = ARRAY_SIZE(mmsys_mt8195_mdp_vppsys_config_table),
-	.vppsys = true,
-};
-
-static const struct mtk_mmsys_match_data mt8195_vppsys0_match_data = {
-	.num_drv_data = 1,
-	.drv_data = {
-		&mt8195_vppsys0_driver_data,
-	},
-};
-
-static const struct mtk_mmsys_driver_data mt8195_vppsys1_driver_data = {
-	.clk_driver = "clk-mt8195-vpp1",
-	.mdp_routes = mmsys_mt8195_mdp_routing_table,
-	.mdp_num_routes = ARRAY_SIZE(mmsys_mt8195_mdp_routing_table),
-	.mdp_mmsys_configs = mmsys_mt8195_mdp_vppsys_config_table,
-	.mdp_num_mmsys_configs = ARRAY_SIZE(mmsys_mt8195_mdp_vppsys_config_table),
-	.vppsys = true,
-	.sw0_rst_offset = MT8186_MMSYS_SW0_RST_B,
-};
-
-static const struct mtk_mmsys_match_data mt8195_vppsys1_match_data = {
-	.num_drv_data = 1,
-	.drv_data = {
-		&mt8195_vppsys1_driver_data,
-	},
-};
-
 static const struct mtk_mmsys_driver_data mt8195_vdosys0_driver_data = {
-	.io_start = 0x1c01a000,
 	.clk_driver = "clk-mt8195-vdo0",
 	.routes = mmsys_mt8195_routing_table,
 	.num_routes = ARRAY_SIZE(mmsys_mt8195_routing_table),
@@ -194,7 +133,6 @@ static const struct mtk_mmsys_driver_data mt8195_vdosys0_driver_data = {
 };
 
 static const struct mtk_mmsys_driver_data mt8195_vdosys1_driver_data = {
-	.io_start = 0x1c100000,
 	.clk_driver = "clk-mt8195-vdo1",
 	.routes = mmsys_mt8195_vdo1_routing_table,
 	.num_routes = ARRAY_SIZE(mmsys_mt8195_vdo1_routing_table),
@@ -204,14 +142,18 @@ static const struct mtk_mmsys_driver_data mt8195_vdosys1_driver_data = {
 	.num_cross_sys_w_h_configs = ARRAY_SIZE(mmsys_mt8195_vdo1_cross_sys_w_h_configs_list),
 	.sw0_rst_offset = MT8195_VDO1_SW0_RST_B,
 	.num_resets = 64,
+	.need_gce = true,
 };
 
-static const struct mtk_mmsys_match_data mt8195_mmsys_match_data = {
-	.num_drv_data = 2,
-	.drv_data = {
-		&mt8195_vdosys0_driver_data,
-		&mt8195_vdosys1_driver_data,
-	},
+static const struct mtk_mmsys_driver_data mt8195_vppsys0_driver_data = {
+	.clk_driver = "clk-mt8195-vpp0",
+	.is_vppsys = true,
+};
+
+static const struct mtk_mmsys_driver_data mt8195_vppsys1_driver_data = {
+	.clk_driver = "clk-mt8195-vpp1",
+	.is_vppsys = true,
+	.need_gce = true,
 };
 
 static const struct mtk_mmsys_driver_data mt8365_mmsys_driver_data = {
@@ -220,34 +162,14 @@ static const struct mtk_mmsys_driver_data mt8365_mmsys_driver_data = {
 	.num_routes = ARRAY_SIZE(mt8365_mmsys_routing_table),
 };
 
-static const struct mtk_mmsys_match_data mt8365_mmsys_match_data = {
-	.num_drv_data = 1,
-	.drv_data = {
-		&mt8365_mmsys_driver_data,
-	},
-};
-
 struct mtk_mmsys {
 	void __iomem *regs;
+	struct clk *async_clk[MAX_CROSS_SYS_ASYNC_NUM];
 	const struct mtk_mmsys_driver_data *data;
-	u8 subsys_id;
 	spinlock_t lock; /* protects mmsys_sw_rst_b reg */
 	struct reset_controller_dev rcdev;
 	struct cmdq_client_reg cmdq_base;
-	phys_addr_t io_start;
 };
-
-static int mtk_mmsys_find_match_drvdata(struct mtk_mmsys *mmsys,
-					const struct mtk_mmsys_match_data *match)
-{
-	int i;
-
-	for (i = 0; i < match->num_drv_data; i++)
-		if (mmsys->io_start == match->drv_data[i]->io_start)
-			return i;
-
-	return -EINVAL;
-}
 
 static void mtk_mmsys_update_bits(struct mtk_mmsys *mmsys, u32 offset, u32 mask, u32 val,
 				  struct cmdq_pkt *cmdq_pkt)
@@ -266,7 +188,6 @@ static void mtk_mmsys_update_bits(struct mtk_mmsys *mmsys, u32 offset, u32 mask,
 		return;
 	}
 #endif
-
 	tmp = readl_relaxed(mmsys->regs + offset);
 	tmp = (tmp & ~mask) | val;
 	writel_relaxed(tmp, mmsys->regs + offset);
@@ -300,150 +221,6 @@ void mtk_mmsys_ddp_disconnect(struct device *dev,
 			mtk_mmsys_update_bits(mmsys, routes[i].addr, routes[i].mask, 0, NULL);
 }
 EXPORT_SYMBOL_GPL(mtk_mmsys_ddp_disconnect);
-
-void mtk_mmsys_mdp_connect(struct device *dev, struct mmsys_cmdq_cmd *cmd,
-			   enum mtk_mdp_comp_id cur,
-			   enum mtk_mdp_comp_id next)
-{
-	struct mtk_mmsys *mmsys = dev_get_drvdata(dev);
-	const struct mtk_mmsys_routes *routes = mmsys->data->mdp_routes;
-	int i;
-
-	if (!routes) {
-		WARN_ON(!routes);
-		return;
-	}
-
-	for (i = 0; i < mmsys->data->mdp_num_routes; i++)
-		if (cur == routes[i].from_comp && next == routes[i].to_comp)
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id,
-					    mmsys->io_start + routes[i].addr,
-					    routes[i].val, 0xFFFFFFFF);
-}
-EXPORT_SYMBOL_GPL(mtk_mmsys_mdp_connect);
-
-void mtk_mmsys_mdp_disconnect(struct device *dev, struct mmsys_cmdq_cmd *cmd,
-			      enum mtk_mdp_comp_id cur,
-			      enum mtk_mdp_comp_id next)
-{
-	struct mtk_mmsys *mmsys = dev_get_drvdata(dev);
-	const struct mtk_mmsys_routes *routes = mmsys->data->mdp_routes;
-	int i;
-
-	for (i = 0; i < mmsys->data->mdp_num_routes; i++)
-		if (cur == routes[i].from_comp && next == routes[i].to_comp)
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id,
-					    mmsys->io_start + routes[i].addr,
-					    0, 0xFFFFFFFF);
-}
-EXPORT_SYMBOL_GPL(mtk_mmsys_mdp_disconnect);
-
-void mtk_mmsys_mdp_isp_ctrl(struct device *dev, struct mmsys_cmdq_cmd *cmd,
-			    enum mtk_mdp_comp_id id)
-{
-	struct mtk_mmsys *mmsys = dev_get_drvdata(dev);
-	const unsigned int *isp_ctrl = mmsys->data->mdp_isp_ctrl;
-	u32 reg;
-
-	WARN_ON(mmsys->subsys_id == 0);
-	/* Direct link */
-	if (id == MDP_COMP_CAMIN) {
-		/* Reset MDP_DL_ASYNC_TX */
-		/* Bit  3: MDP_DL_ASYNC_TX / MDP_RELAY */
-		if (isp_ctrl[ISP_CTRL_MMSYS_SW0_RST_B]) {
-			reg = mmsys->io_start + isp_ctrl[ISP_CTRL_MMSYS_SW0_RST_B];
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id, reg,
-					    0x0, 0x00000008);
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id, reg,
-					    1 << 3, 0x00000008);
-		}
-
-		/* Reset MDP_DL_ASYNC_RX */
-		/* Bit  10: MDP_DL_ASYNC_RX */
-		if (isp_ctrl[ISP_CTRL_MMSYS_SW1_RST_B]) {
-			reg = mmsys->io_start + isp_ctrl[ISP_CTRL_MMSYS_SW1_RST_B];
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id, reg,
-					    0x0, 0x00000400);
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id, reg,
-					    1 << 10, 0x00000400);
-		}
-
-		/* Enable sof mode */
-		if (isp_ctrl[ISP_CTRL_ISP_RELAY_CFG_WD]) {
-			reg = mmsys->io_start + isp_ctrl[ISP_CTRL_ISP_RELAY_CFG_WD];
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id, reg,
-					    0 << 31, 0x80000000);
-		}
-	}
-
-	if (id == MDP_COMP_CAMIN2) {
-		/* Reset MDP_DL_ASYNC2_TX */
-		/* Bit  4: MDP_DL_ASYNC2_TX / MDP_RELAY2 */
-		if (isp_ctrl[ISP_CTRL_MMSYS_SW0_RST_B]) {
-			reg = mmsys->io_start + isp_ctrl[ISP_CTRL_MMSYS_SW0_RST_B];
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id, reg,
-					    0x0, 0x00000010);
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id, reg,
-					    1 << 4, 0x00000010);
-		}
-
-		/* Reset MDP_DL_ASYNC2_RX */
-		/* Bit  11: MDP_DL_ASYNC2_RX */
-		if (isp_ctrl[ISP_CTRL_MMSYS_SW1_RST_B]) {
-			reg = mmsys->io_start + isp_ctrl[ISP_CTRL_MMSYS_SW1_RST_B];
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id, reg,
-					    0x0, 0x00000800);
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id, reg,
-					    1 << 11, 0x00000800);
-		}
-
-		/* Enable sof mode */
-		if (isp_ctrl[ISP_CTRL_IPU_RELAY_CFG_WD]) {
-			reg = mmsys->io_start + isp_ctrl[ISP_CTRL_IPU_RELAY_CFG_WD];
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id, reg,
-					    0 << 31, 0x80000000);
-		}
-	}
-}
-EXPORT_SYMBOL_GPL(mtk_mmsys_mdp_isp_ctrl);
-
-void mtk_mmsys_mdp_camin_ctrl(struct device *dev, struct mmsys_cmdq_cmd *cmd,
-			      enum mtk_mdp_comp_id id, u32 camin_w, u32 camin_h)
-{
-	struct mtk_mmsys *mmsys = dev_get_drvdata(dev);
-	const unsigned int *isp_ctrl = mmsys->data->mdp_isp_ctrl;
-	u32 reg;
-
-	WARN_ON(mmsys->subsys_id == 0);
-	/* Config for direct link */
-	if (id == MDP_COMP_CAMIN) {
-		if (isp_ctrl[ISP_CTRL_MDP_ASYNC_CFG_WD]) {
-			reg = mmsys->io_start + isp_ctrl[ISP_CTRL_MDP_ASYNC_CFG_WD];
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id, reg,
-				     (camin_h << 16) + camin_w, 0x3FFF3FFF);
-		}
-
-		if (isp_ctrl[ISP_CTRL_ISP_RELAY_CFG_WD]) {
-			reg = mmsys->io_start + isp_ctrl[ISP_CTRL_ISP_RELAY_CFG_WD];
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id, reg,
-				     (camin_h << 16) + camin_w, 0x3FFF3FFF);
-		}
-	}
-	if (id == MDP_COMP_CAMIN2) {
-		if (isp_ctrl[ISP_CTRL_MDP_ASYNC_IPU_CFG_WD]) {
-			reg = mmsys->io_start +
-			      isp_ctrl[ISP_CTRL_MDP_ASYNC_IPU_CFG_WD];
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id, reg,
-				     (camin_h << 16) + camin_w, 0x3FFF3FFF);
-		}
-		if (isp_ctrl[ISP_CTRL_IPU_RELAY_CFG_WD]) {
-			reg = mmsys->io_start + isp_ctrl[ISP_CTRL_IPU_RELAY_CFG_WD];
-			cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id, reg,
-				     (camin_h << 16) + camin_w, 0x3FFF3FFF);
-		}
-	}
-}
-EXPORT_SYMBOL_GPL(mtk_mmsys_mdp_camin_ctrl);
 
 void mtk_mmsys_merge_async_config(struct device *dev, int idx, int width, int height,
 				  struct cmdq_pkt *cmdq_pkt)
@@ -483,13 +260,14 @@ void mtk_mmsys_mixer_in_channel_swap(struct device *dev, int idx, bool channel_s
 }
 EXPORT_SYMBOL_GPL(mtk_mmsys_mixer_in_channel_swap);
 
-void mtk_mmsys_cross_sys_config(struct device *dev_main_sys,
+void mtk_mmsys_cross_sys_prepare(struct device *dev_main_sys,
 					struct device *dev_cross_sys, int width, int height,
 					struct cmdq_pkt *cmdq_pkt)
 {
 	struct mtk_mmsys *main_mmsys = dev_get_drvdata(dev_main_sys);
 	struct mtk_mmsys *cross_mmsys = dev_get_drvdata(dev_cross_sys);
-	int i;
+	char async_clk_prop[MAX_PROP_NAME_LENGTH] = {0};
+	int i, ret;
 
 	for (i = 0; i < main_mmsys->data->num_main_sys_w_h_configs; i++)
 		mtk_mmsys_update_bits(main_mmsys,
@@ -500,8 +278,112 @@ void mtk_mmsys_cross_sys_config(struct device *dev_main_sys,
 		mtk_mmsys_update_bits(cross_mmsys,
 				cross_mmsys->data->cross_sys_w_h_configs[i],
 			      ~0, height << 16 | width, cmdq_pkt);
+
+	for (i = 0; i < MAX_CROSS_SYS_ASYNC_NUM; i++) {
+		snprintf(async_clk_prop, MAX_PROP_NAME_LENGTH, "cross_sys_async%d", i);
+		main_mmsys->async_clk[i] = devm_clk_get_optional(dev_main_sys, async_clk_prop);
+		if (IS_ERR(main_mmsys->async_clk[i])) {
+			dev_err(dev_main_sys, "failed to get async clock\n");
+			goto err;
+		}
+		cross_mmsys->async_clk[i] = devm_clk_get_optional(dev_cross_sys, async_clk_prop);
+		if (IS_ERR(cross_mmsys->async_clk[i])) {
+			dev_err(dev_cross_sys, "failed to get async clock\n");
+			goto err;
+		}
+	}
+
+	for (i = 0; i < MAX_CROSS_SYS_ASYNC_NUM; i++) {
+		ret = clk_prepare_enable(main_mmsys->async_clk[i]);
+		if (ret) {
+			dev_err(dev_main_sys, "cross sys async clk prepare enable failed\n");
+			goto err;
+		}
+
+		ret = clk_prepare_enable(cross_mmsys->async_clk[i]);
+		if (ret) {
+			dev_err(dev_cross_sys, "cross sys async clk prepare enable failed\n");
+			goto err;
+		}
+	}
+
+	return;
+err:
+	for (i = 0; i < MAX_CROSS_SYS_ASYNC_NUM; i++) {
+		clk_disable_unprepare(main_mmsys->async_clk[i]);
+		clk_disable_unprepare(cross_mmsys->async_clk[i]);
+	}
+
 }
-EXPORT_SYMBOL_GPL(mtk_mmsys_cross_sys_config);
+EXPORT_SYMBOL_GPL(mtk_mmsys_cross_sys_prepare);
+
+void mtk_mmsys_cross_sys_unprepare(struct device *dev_main_sys,
+					struct device *dev_cross_sys)
+{
+	struct mtk_mmsys *main_mmsys = dev_get_drvdata(dev_main_sys);
+	struct mtk_mmsys *cross_mmsys = dev_get_drvdata(dev_cross_sys);
+	int i, ret;
+
+	for (i = 0; i < MAX_CROSS_SYS_ASYNC_NUM; i++) {
+		clk_disable_unprepare(main_mmsys->async_clk[i]);
+		clk_disable_unprepare(cross_mmsys->async_clk[i]);
+	}
+}
+EXPORT_SYMBOL_GPL(mtk_mmsys_cross_sys_unprepare);
+
+void mtk_mmsys_vpp_rsz_merge_config(struct device *dev, u32 id, bool enable)
+{
+	u32 reg;
+
+	switch (id) {
+	case 2:
+		reg = MT8195_SVPP2_BUF_BF_RSZ_SWITCH;
+		break;
+	case 3:
+		reg = MT8195_SVPP3_BUF_BF_RSZ_SWITCH;
+		break;
+	default:
+		dev_err(dev, "Invalid id %d\n", id);
+		return;
+	}
+
+	mtk_mmsys_update_bits(dev_get_drvdata(dev), reg, ~0, enable, NULL);
+}
+EXPORT_SYMBOL_GPL(mtk_mmsys_vpp_rsz_merge_config);
+
+void mtk_mmsys_vpp_rsz_dcm_config(struct device *dev, bool enable)
+{
+	u32 client;
+
+	client = MT8195_SVPP1_MDP_RSZ;
+	mtk_mmsys_update_bits(dev_get_drvdata(dev),
+			      MT8195_VPP1_HW_DCM_1ST_DIS0, client,
+			      ((enable) ? client : 0), NULL);
+	mtk_mmsys_update_bits(dev_get_drvdata(dev),
+			      MT8195_VPP1_HW_DCM_2ND_DIS0, client,
+			      ((enable) ? client : 0), NULL);
+
+	client = MT8195_SVPP2_MDP_RSZ | MT8195_SVPP3_MDP_RSZ;
+	mtk_mmsys_update_bits(dev_get_drvdata(dev),
+			      MT8195_VPP1_HW_DCM_1ST_DIS1, client,
+			      ((enable) ? client : 0), NULL);
+	mtk_mmsys_update_bits(dev_get_drvdata(dev),
+			      MT8195_VPP1_HW_DCM_2ND_DIS1, client,
+			      ((enable) ? client : 0), NULL);
+}
+EXPORT_SYMBOL_GPL(mtk_mmsys_vpp_rsz_dcm_config);
+
+void mtk_mmsys_vpp_split_out_config(struct device *dev, struct cmdq_pkt *cmdq_pkt)
+{
+	/* 1:SVPP2_SRC_SEL, 0:RSZ_MERGE_IN_SEL */
+	mtk_mmsys_update_bits(dev_get_drvdata(dev),
+			      MT8195_VPP_SPLIT_OUT0_SOUT_SEL, 0xFFFFFFFF,
+			      0x1, cmdq_pkt);
+	mtk_mmsys_update_bits(dev_get_drvdata(dev),
+			      MT8195_VPP_SPLIT_OUT1_SOUT_SEL, 0xFFFFFFFF,
+			      0x1, cmdq_pkt);
+}
+EXPORT_SYMBOL_GPL(mtk_mmsys_vpp_split_out_config);
 
 static int mtk_mmsys_reset_update(struct reset_controller_dev *rcdev, unsigned long id,
 				  bool assert)
@@ -597,37 +479,12 @@ void mtk_mmsys_ddp_config(struct device *dev, enum mtk_mmsys_config_type config,
 }
 EXPORT_SYMBOL_GPL(mtk_mmsys_ddp_config);
 
-void mtk_mmsys_mdp_write_config(struct device *dev,
-			 struct mmsys_cmdq_cmd *cmd,
-			 u32 alias_id, u32 value, u32 mask)
-{
-	struct mtk_mmsys *mmsys = dev_get_drvdata(dev);
-	const u32 *configs = mmsys->data->mdp_mmsys_configs;
-
-	cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id,
-			    mmsys->io_start + configs[alias_id], value, mask);
-}
-EXPORT_SYMBOL_GPL(mtk_mmsys_mdp_write_config);
-
-void mtk_mmsys_write_reg_by_cmdq(struct device *dev,
-			 struct mmsys_cmdq_cmd *cmd,
-			 u32 offset, u32 value, u32 mask)
-{
-	struct mtk_mmsys *mmsys = dev_get_drvdata(dev);
-
-	cmdq_pkt_write_mask(cmd->pkt, mmsys->subsys_id,
-			    mmsys->io_start + offset, value, mask);
-}
-EXPORT_SYMBOL_GPL(mtk_mmsys_write_reg_by_cmdq);
-
 static int mtk_mmsys_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct platform_device *clks;
 	struct platform_device *drm;
-	const struct mtk_mmsys_match_data *match_data;
 	struct mtk_mmsys *mmsys;
-	struct resource *res;
 	int ret;
 
 	mmsys = devm_kzalloc(dev, sizeof(*mmsys), GFP_KERNEL);
@@ -641,34 +498,7 @@ static int mtk_mmsys_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-#if IS_REACHABLE(CONFIG_MTK_CMDQ)
-	ret = cmdq_dev_get_client_reg(dev, &mmsys->cmdq_base, 0);
-	if (ret)
-		dev_dbg(dev, "No mediatek,gce-client-reg!\n");
-#endif
-
-	mmsys->subsys_id = mmsys->cmdq_base.subsys;
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_err(dev, "Couldn't get mmsys resource\n");
-		return -EINVAL;
-	}
-	mmsys->io_start = res->start;
-
-	match_data = of_device_get_match_data(dev);
-	if (match_data->num_drv_data > 1) {
-		/* This SoC has multiple mmsys channels */
-		ret = mtk_mmsys_find_match_drvdata(mmsys, match_data);
-		if (ret < 0) {
-			dev_err(dev, "Couldn't get match driver data\n");
-			return ret;
-		}
-		mmsys->data = match_data->drv_data[ret];
-	} else {
-		dev_dbg(dev, "Using single mmsys channel\n");
-		mmsys->data = match_data->drv_data[0];
-	}
+	mmsys->data = of_device_get_match_data(&pdev->dev);
 
 	spin_lock_init(&mmsys->lock);
 
@@ -683,9 +513,12 @@ static int mtk_mmsys_probe(struct platform_device *pdev)
 	}
 
 #if IS_REACHABLE(CONFIG_MTK_CMDQ)
-	ret = cmdq_dev_get_client_reg(dev, &mmsys->cmdq_base, 0);
-	if (ret)
-		dev_dbg(dev, "No mediatek,gce-client-reg!\n");
+	if (mmsys->data->need_gce) {
+		/* query gce reg according to need_gce flag in mmsys driver data */
+		ret = cmdq_dev_get_client_reg(dev, &mmsys->cmdq_base, 0);
+		if (ret)
+			dev_dbg(dev, "No mediatek,gce-client-reg!\n");
+	}
 #endif
 
 	platform_set_drvdata(pdev, mmsys);
@@ -695,8 +528,8 @@ static int mtk_mmsys_probe(struct platform_device *pdev)
 	if (IS_ERR(clks))
 		return PTR_ERR(clks);
 
-	if (mmsys->data->vppsys)
-		goto EXIT;
+	if (mmsys->data->is_vppsys)
+		goto out_probe_done;
 
 	drm = platform_device_register_data(&pdev->dev, "mediatek-drm",
 					    PLATFORM_DEVID_AUTO, NULL, 0);
@@ -705,62 +538,82 @@ static int mtk_mmsys_probe(struct platform_device *pdev)
 		return PTR_ERR(drm);
 	}
 
-EXIT:
+out_probe_done:
 	return 0;
 }
 
 static const struct of_device_id of_match_mtk_mmsys[] = {
 	{
 		.compatible = "mediatek,mt2701-mmsys",
-		.data = &mt2701_mmsys_match_data,
+		.data = &mt2701_mmsys_driver_data,
 	},
 	{
 		.compatible = "mediatek,mt2712-mmsys",
-		.data = &mt2712_mmsys_match_data,
+		.data = &mt2712_mmsys_driver_data,
 	},
 	{
 		.compatible = "mediatek,mt6779-mmsys",
-		.data = &mt6779_mmsys_match_data,
+		.data = &mt6779_mmsys_driver_data,
 	},
 	{
 		.compatible = "mediatek,mt6797-mmsys",
-		.data = &mt6797_mmsys_match_data,
+		.data = &mt6797_mmsys_driver_data,
 	},
 	{
 		.compatible = "mediatek,mt8167-mmsys",
-		.data = &mt8167_mmsys_match_data,
+		.data = &mt8167_mmsys_driver_data,
 	},
 	{
 		.compatible = "mediatek,mt8173-mmsys",
-		.data = &mt8173_mmsys_match_data,
+		.data = &mt8173_mmsys_driver_data,
 	},
 	{
 		.compatible = "mediatek,mt8183-mmsys",
-		.data = &mt8183_mmsys_match_data,
+		.data = &mt8183_mmsys_driver_data,
 	},
 	{
 		.compatible = "mediatek,mt8186-mmsys",
-		.data = &mt8186_mmsys_match_data,
+		.data = &mt8186_mmsys_driver_data,
+	},
+	{
+		.compatible = "mediatek,mt8188-vdosys0",
+		.data = &mt8188_vdosys0_driver_data,
+	},
+	{
+		.compatible = "mediatek,mt8188-vdosys1",
+		.data = &mt8188_vdosys1_driver_data,
+	},
+	{
+		.compatible = "mediatek,mt8188-vppsys0",
+		.data = &mt8188_vppsys0_driver_data,
+	},
+	{
+		.compatible = "mediatek,mt8188-vppsys1",
+		.data = &mt8188_vppsys1_driver_data,
 	},
 	{
 		.compatible = "mediatek,mt8192-mmsys",
-		.data = &mt8192_mmsys_match_data,
+		.data = &mt8192_mmsys_driver_data,
+	},
+	{
+		.compatible = "mediatek,mt8195-vdosys0",
+		.data = &mt8195_vdosys0_driver_data,
+	},
+	{
+		.compatible = "mediatek,mt8195-vdosys1",
+		.data = &mt8195_vdosys1_driver_data,
 	},
 	{
 		.compatible = "mediatek,mt8195-vppsys0",
-		.data = &mt8195_vppsys0_match_data,
+		.data = &mt8195_vppsys0_driver_data,
 	},
 	{
 		.compatible = "mediatek,mt8195-vppsys1",
-		.data = &mt8195_vppsys1_match_data,
-	},
-	{
-		.compatible = "mediatek,mt8195-mmsys",
-		.data = &mt8195_mmsys_match_data,
+		.data = &mt8195_vppsys1_driver_data,
 	},
 	{
 		.compatible = "mediatek,mt8365-mmsys",
-		.data = &mt8365_mmsys_match_data,
+		.data = &mt8365_mmsys_driver_data,
 	},
 	{ }
 };

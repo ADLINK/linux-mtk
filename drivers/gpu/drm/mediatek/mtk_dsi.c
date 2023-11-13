@@ -27,6 +27,7 @@
 #include <drm/drm_simple_kms_helper.h>
 
 #include "mtk_disp_drv.h"
+#include "mtk_drm_drv.h"
 #include "mtk_drm_ddp_comp.h"
 
 #define DSI_START		0x00
@@ -128,11 +129,10 @@
 #define CLK_HS_POST			(0xff << 8)
 #define CLK_HS_EXIT			(0xff << 16)
 
-#define DSI_VM_CMD_CON		0x130
 #define VM_CMD_EN			BIT(0)
 #define TS_VFP_EN			BIT(5)
 
-#define DSI_SHADOW_DEBUG	0x190U
+#define DSI_SHADOW_DEBUG	0xc00
 #define FORCE_COMMIT			BIT(0)
 #define BYPASS_SHADOW			BIT(1)
 
@@ -175,6 +175,8 @@ struct phy;
 
 struct mtk_dsi_driver_data {
 	const u32 reg_cmdq_off;
+	const u32 reg_vm_cmdq_off;
+	const u32 reg_shadow_dbg;
 	bool has_shadow_ctl;
 	bool has_size_ctl;
 };
@@ -344,8 +346,10 @@ static void mtk_dsi_set_mode(struct mtk_dsi *dsi)
 
 static void mtk_dsi_set_vm_cmd(struct mtk_dsi *dsi)
 {
-	mtk_dsi_mask(dsi, DSI_VM_CMD_CON, VM_CMD_EN, VM_CMD_EN);
-	mtk_dsi_mask(dsi, DSI_VM_CMD_CON, TS_VFP_EN, TS_VFP_EN);
+	u32 reg_vm_cmdq_off = dsi->driver_data->reg_vm_cmdq_off;
+
+	mtk_dsi_mask(dsi, reg_vm_cmdq_off, VM_CMD_EN, VM_CMD_EN);
+	mtk_dsi_mask(dsi, reg_vm_cmdq_off, TS_VFP_EN, TS_VFP_EN);
 }
 
 static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
@@ -601,6 +605,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	struct device *dev = dsi->host.dev;
 	int ret;
 	u32 bit_per_pixel;
+	u32 reg_shadow_dbg = dsi->driver_data->reg_shadow_dbg;
 
 	if (++dsi->refcount != 1)
 		return 0;
@@ -646,7 +651,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 
 	if (dsi->driver_data->has_shadow_ctl)
 		writel(FORCE_COMMIT | BYPASS_SHADOW,
-		       dsi->regs + DSI_SHADOW_DEBUG);
+		       dsi->regs + reg_shadow_dbg);
 
 	mtk_dsi_reset_engine(dsi);
 	mtk_dsi_phy_timconfig(dsi);
@@ -791,6 +796,7 @@ void mtk_dsi_ddp_stop(struct device *dev)
 static int mtk_dsi_encoder_init(struct drm_device *drm, struct mtk_dsi *dsi)
 {
 	int ret;
+	int indicated_disp_path = -1;
 
 	ret = drm_simple_encoder_init(drm, &dsi->encoder,
 				      DRM_MODE_ENCODER_DSI);
@@ -799,7 +805,25 @@ static int mtk_dsi_encoder_init(struct drm_device *drm, struct mtk_dsi *dsi)
 		return ret;
 	}
 
-	dsi->encoder.possible_crtcs = mtk_drm_find_possible_crtc_by_comp(drm, dsi->host.dev);
+	if (of_find_property(dsi->host.dev->of_node, "mediatek,indicated-display-path", &ret)) {
+		ret = of_property_read_u32(dsi->host.dev->of_node,
+					   "mediatek,indicated-display-path",
+					   &indicated_disp_path);
+		if (ret) {
+			dev_err(dsi->host.dev, "Failed to get indicated-display-path id\n");
+			return ret;
+		}
+		if (indicated_disp_path < 0 || indicated_disp_path >= MAX_CRTC) {
+			dev_err(dsi->host.dev, "Wrong indicated-display-path id read from dts !\n");
+			indicated_disp_path = -1;
+		}
+	}
+
+	if (indicated_disp_path == -1)
+		dsi->encoder.possible_crtcs =
+			mtk_drm_find_possible_crtc_by_comp(drm, dsi->host.dev);
+	else
+		dsi->encoder.possible_crtcs = (1 << indicated_disp_path);
 
 	ret = drm_bridge_attach(&dsi->encoder, &dsi->bridge, NULL,
 				DRM_BRIDGE_ATTACH_NO_CONNECTOR);
@@ -1182,15 +1206,29 @@ static int mtk_dsi_remove(struct platform_device *pdev)
 
 static const struct mtk_dsi_driver_data mt8173_dsi_driver_data = {
 	.reg_cmdq_off = 0x200,
+	.reg_vm_cmdq_off = 0x130,
+	.reg_shadow_dbg = 0x190,
 };
 
 static const struct mtk_dsi_driver_data mt2701_dsi_driver_data = {
 	.reg_cmdq_off = 0x180,
+	.reg_vm_cmdq_off = 0x130,
+	.reg_shadow_dbg = 0x190,
 };
 
 static const struct mtk_dsi_driver_data mt8183_dsi_driver_data = {
 	.reg_cmdq_off = 0x200,
+	.reg_vm_cmdq_off = 0x130,
+	.reg_shadow_dbg = 0x190,
 	.has_shadow_ctl = true,
+	.has_size_ctl = true,
+};
+
+static const struct mtk_dsi_driver_data mt8188_dsi_driver_data = {
+	.reg_cmdq_off = 0xd00,
+	.reg_vm_cmdq_off = 0x200,
+	.reg_shadow_dbg = 0xc00,
+	.has_shadow_ctl = false,
 	.has_size_ctl = true,
 };
 
@@ -1201,6 +1239,8 @@ static const struct of_device_id mtk_dsi_of_match[] = {
 	  .data = &mt8173_dsi_driver_data },
 	{ .compatible = "mediatek,mt8183-dsi",
 	  .data = &mt8183_dsi_driver_data },
+	{ .compatible = "mediatek,mt8188-dsi",
+	  .data = &mt8188_dsi_driver_data },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, mtk_dsi_of_match);

@@ -11,10 +11,9 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/usb/tcpci.h>
 #include <linux/usb/tcpm.h>
 #include <linux/regulator/consumer.h>
-
-#include "tcpci.h"
 
 #define MT6360_REG_PHYCTRL1	0x80
 #define MT6360_REG_PHYCTRL3	0x82
@@ -197,7 +196,8 @@ static int mt6360_tcpc_probe(struct platform_device *pdev)
 
 	mti->tcpci = tcpci_register_port(&pdev->dev, &mti->tdata);
 	if (IS_ERR(mti->tcpci)) {
-		dev_err(&pdev->dev, "Failed to register tcpci port\n");
+		if (PTR_ERR(mti->tcpci) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Failed to register tcpci port\n");
 		return PTR_ERR(mti->tcpci);
 	}
 

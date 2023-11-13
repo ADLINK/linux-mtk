@@ -779,5 +779,3 @@ config USB_MTK_HQA_TEST
 	  found in Mediatek MT8195 SoC.
 	  In this way, we can generate reg and hqa nodes for
 	  hqa test.
-
-	  If unsure, say N.

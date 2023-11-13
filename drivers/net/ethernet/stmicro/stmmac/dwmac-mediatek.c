@@ -308,6 +308,7 @@ static int mt8195_set_interface(struct mediatek_dwmac_plat_data *plat)
 	case PHY_INTERFACE_MODE_RGMII_TXID:
 	case PHY_INTERFACE_MODE_RGMII_RXID:
 	case PHY_INTERFACE_MODE_RGMII_ID:
+		intf_val |= MT8195_RMII_CLK_SRC_INTERNAL;
 		intf_val |= FIELD_PREP(MT8195_ETH_INTF_SEL, PHY_INTF_RGMII);
 		break;
 	default:
@@ -618,6 +619,7 @@ static int mediatek_dwmac_common_data(struct platform_device *pdev,
 
 	plat->interface = priv_plat->phy_mode;
 	plat->use_phy_wol = priv_plat->mac_wol ? 0 : 1;
+	plat->sph_disable = 1;
 	plat->riwt_off = 1;
 	plat->maxmtu = ETH_DATA_LEN;
 	plat->addr64 = priv_plat->variant->dma_bit_mask;

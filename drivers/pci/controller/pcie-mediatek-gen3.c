@@ -17,6 +17,7 @@
 #include <linux/msi.h>
 #include <linux/pci.h>
 #include <linux/phy/phy.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
@@ -332,7 +333,7 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 	 */
 	msleep(90);
 
-	/* De-assert PERST# signal */
+	/* De-assert reset signals */
 	val &= ~PCIE_PE_RSTB;
 	writel_relaxed(val, port->base + PCIE_RST_CTRL_REG);
 
@@ -1003,7 +1004,6 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 {
 	struct mtk_pcie_port *port = dev_get_drvdata(dev);
 	int err;
-	u32 val;
 
 	/* Trigger link to L2 state */
 	err = mtk_pcie_turn_off_link(port);
@@ -1012,15 +1012,13 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 		return err;
 	}
 
-	/* Pull down the PERST# pin */
-	val = readl_relaxed(port->base + PCIE_RST_CTRL_REG);
-	val |= PCIE_PE_RSTB;
-	writel_relaxed(val, port->base + PCIE_RST_CTRL_REG);
-
 	dev_dbg(port->dev, "entered L2 states successfully");
 
 	mtk_pcie_irq_save(port);
 	mtk_pcie_power_down(port);
+
+	/* Pull down the PERST# pin */
+	pinctrl_pm_select_idle_state(port->dev);
 
 	return 0;
 }
@@ -1030,6 +1028,7 @@ static int __maybe_unused mtk_pcie_resume_noirq(struct device *dev)
 	struct mtk_pcie_port *port = dev_get_drvdata(dev);
 	int err;
 
+	pinctrl_pm_select_default_state(port->dev);
 	err = mtk_pcie_power_up(port);
 	if (err)
 		return err;

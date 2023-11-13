@@ -1247,6 +1247,33 @@ static const struct panel_desc boe_nv140fhmn49 = {
 	},
 };
 
+static const struct drm_display_mode innolux_hk173vb_01b_mode = {
+	.clock = 533280,
+	.hdisplay = 3840,
+	.hsync_start = 3840 + 100,
+	.hsync_end = 3840 + 100 + 20,
+	.htotal = 3840 + 100 + 20 + 40,
+	.vdisplay = 2160,
+	.vsync_start = 2160 + 16,
+	.vsync_end = 2160 + 16 + 22,
+	.vtotal = 2160 + 16 + 22 + 24,
+};
+
+static const struct panel_desc innolux_hk173vb_01b = {
+	.modes = &innolux_hk173vb_01b_mode,
+	.num_modes = 1,
+	.bpc = 8,
+	.size = {
+		.width = 279,
+		.height = 174,
+	},
+	.delay = {
+		.hpd_reliable = 210,
+		.enable = 50,
+		.unprepare = 500,
+	},
+};
+
 static const struct drm_display_mode innolux_n116bca_ea1_mode = {
 	.clock = 76420,
 	.hdisplay = 1366,
@@ -1473,6 +1500,38 @@ static const struct panel_desc lg_lp120up1 = {
 		.width = 267,
 		.height = 183,
 	},
+	.delay = {
+		.hpd_reliable = 210,
+		.enable = 50,
+		.unprepare = 500,
+	},
+};
+
+static const struct drm_display_mode auo_g156han03_mode = {
+	.clock = 140910,
+	.hdisplay = 1920,
+	.hsync_start = 1920 + 40,
+	.hsync_end = 1920 + 40 + 40,
+	.htotal = 1920 + 40 + 40 + 80,
+	.vdisplay = 1080,
+	.vsync_start = 1080 + 10,
+	.vsync_end = 1080 + 10 + 10,
+	.vtotal = 1080 + 10 + 10 + 28,
+};
+
+static const struct panel_desc auo_g156han03 = {
+	.modes = &auo_g156han03_mode,
+	.num_modes = 1,
+	.bpc = 8,
+	.size = {
+		.width = 350,
+		.height = 216,
+	},
+	.delay = {
+		.hpd_reliable = 210,
+		.enable = 50,
+		.unprepare = 500,
+	},
 };
 
 static const struct drm_display_mode lg_lp129qe_mode = {
@@ -1660,6 +1719,31 @@ static const struct panel_desc starry_kr122ea0sra = {
 	},
 };
 
+static const struct drm_display_mode koe_tx18d204vm0baa_mode = {
+	.clock = 148500,
+	.hdisplay = 1920,
+	.hsync_start = 1920 + 124,
+	.hsync_end = 1920 + 124 + 32,
+	.htotal = 1920 + 124 + 32 + 124,
+	.vdisplay = 1080,
+	.vsync_start = 1080 + 20,
+	.vsync_end = 1080 + 20 + 5,
+	.vtotal = 1080 + 20 + 5 + 20,
+};
+
+static const struct panel_desc koe_tx18d204vm0baa = {
+	.modes = &koe_tx18d204vm0baa_mode,
+	.num_modes = 1,
+	.bpc = 8,
+	.size = {
+		.width = 155,
+		.height = 87,
+	},
+	.delay = {
+		.hpd_reliable = 1000,
+	},
+};
+
 static const struct of_device_id platform_of_match[] = {
 	{
 		/* Must be first */
@@ -1686,6 +1770,9 @@ static const struct of_device_id platform_of_match[] = {
 		.compatible = "auo,b140han06",
 		.data = &auo_b140han06,
 	}, {
+		.compatible = "auo,g156han03",
+		.data = &auo_g156han03,
+	}, {
 		.compatible = "boe,nv101wxmn51",
 		.data = &boe_nv101wxmn51,
 	}, {
@@ -1700,6 +1787,9 @@ static const struct of_device_id platform_of_match[] = {
 	}, {
 		.compatible = "boe,nv140fhmn49",
 		.data = &boe_nv140fhmn49,
+	}, {
+		.compatible = "innolux,hk173vb-01b",
+		.data = &innolux_hk173vb_01b,
 	}, {
 		.compatible = "innolux,n116bca-ea1",
 		.data = &innolux_n116bca_ea1,
@@ -1748,6 +1838,9 @@ static const struct of_device_id platform_of_match[] = {
 	}, {
 		.compatible = "starry,kr122ea0sra",
 		.data = &starry_kr122ea0sra,
+	}, {
+		.compatible = "koe,tx18d204vm0baa",
+		.data = &koe_tx18d204vm0baa,
 	}, {
 		/* sentinel */
 	}

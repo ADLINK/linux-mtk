@@ -440,9 +440,6 @@ static int mtk_hdmi_pll_drv_setting(struct clk_hw *hw)
 {
 	unsigned char data_channel_bias, clk_channel_bias;
 	unsigned char impedance, impedance_en;
-#ifdef CONFIG_ARCH_ADLINKTECH		
-	unsigned char pre_emphasis, pre_emphasis_clk, pre_emphasis_en;
-#endif
 	unsigned char calibration;
 	struct mtk_hdmi_phy *hdmi_phy = to_mtk_hdmi_phy(hw);
 	unsigned long tmds_clk;
@@ -467,45 +464,20 @@ static int mtk_hdmi_pll_drv_setting(struct clk_hw *hw)
 
 	/* 3G < data rate <= 6G, 300M < tmds rate <= 594M */
 	if (tmds_clk > 300000000UL && tmds_clk <= 594000000UL) {
-#ifdef CONFIG_ARCH_ADLINKTECH		
-		data_channel_bias = 0x3f; //26.66mA
-		clk_channel_bias = 0x3f; //26.66mA
-#else
 		data_channel_bias = 0x3c; //24mA
 		clk_channel_bias = 0x34; //20mA
-#endif
 		impedance_en = 0xf;
 		impedance = 0x36; //100ohm
-#ifdef CONFIG_ARCH_ADLINKTECH		
-		pre_emphasis_en = 0xf;
-		pre_emphasis = 0x3;
-		pre_emphasis_clk = 0xD;
-#endif
 	} else if (pixel_clk >= 74175000UL && pixel_clk <= 300000000UL) {
-#ifdef CONFIG_ARCH_ADLINKTECH		
-		data_channel_bias = 0x3f; //26.66mA
-		clk_channel_bias = 0x3f; //26.66mA
-#else
 		data_channel_bias = 0x34; //20mA
 		clk_channel_bias = 0x2c; //16mA
-#endif
 		impedance_en = 0xf;
 		impedance = 0x36; //100ohm
-#ifdef CONFIG_ARCH_ADLINKTECH		
-		pre_emphasis_en = 0xf;
-		pre_emphasis = 0x1f;
-		pre_emphasis_clk = 0x1f;
-#endif
 	} else if (pixel_clk >= 27000000UL && pixel_clk < 74175000UL) {
 		data_channel_bias = 0x14; //10mA
 		clk_channel_bias = 0x14; //10mA
 		impedance_en = 0x0;
 		impedance = 0x0;
-#ifdef CONFIG_ARCH_ADLINKTECH		
-		pre_emphasis_en = 0x0;
-		pre_emphasis = 0x00;
-		pre_emphasis_clk = 0x00;
-#endif
 	} else {
 
 		return -EINVAL;
@@ -541,24 +513,7 @@ static int mtk_hdmi_pll_drv_setting(struct clk_hw *hw)
 	mtk_hdmi_phy_mask(hdmi_phy, HDMI_1_CFG_2,
 			  impedance << RG_HDMITX21_DRV_IMP_CLK_EN1_SHIFT,
 			  RG_HDMITX21_DRV_IMP_CLK_EN1);
-#ifdef CONFIG_ARCH_ADLINKTECH		
-	/* pre-emphasis */
-	mtk_hdmi_phy_mask(hdmi_phy, HDMI_1_CFG_6,
-			  pre_emphasis_en << RG_HDMITX21_SER_FFE1_SHIFT,
-			  RG_HDMITX21_SER_FFE1);
-	mtk_hdmi_phy_mask(hdmi_phy, HDMI_1_CFG_7,
-			  pre_emphasis << RG_HDMITX21_DRV_IBIAS_D0_FFE1_SHIFT,
-			  RG_HDMITX21_DRV_IBIAS_D0_FFE1);
-	mtk_hdmi_phy_mask(hdmi_phy, HDMI_1_CFG_7,
-			  pre_emphasis << RG_HDMITX21_DRV_IBIAS_D1_FFE1_SHIFT,
-			  RG_HDMITX21_DRV_IBIAS_D1_FFE1);
-	mtk_hdmi_phy_mask(hdmi_phy, HDMI_1_CFG_7,
-			  pre_emphasis << RG_HDMITX21_DRV_IBIAS_D2_FFE1_SHIFT,
-			  RG_HDMITX21_DRV_IBIAS_D2_FFE1);
-	mtk_hdmi_phy_mask(hdmi_phy, HDMI_1_CFG_7,
-			  pre_emphasis_clk << RG_HDMITX21_DRV_IBIAS_CK_FFE1_SHIFT,
-			  RG_HDMITX21_DRV_IBIAS_CK_FFE1);
-#endif
+
 	/* calibration */
 	if (hdmi_phy->conf->efuse_sw_mode) {
 		/* default SW calibration setting suggested */
@@ -747,6 +702,18 @@ out:
 	return ret;
 }
 
+static void mtk_hdmi_power_control(struct mtk_hdmi_phy *hdmi_phy, bool enable)
+{
+	dev_dbg(hdmi_phy->dev, "%s: enable = %d\n", __func__, enable);
+
+	if (enable)
+		mtk_hdmi_phy_mask(hdmi_phy, HDMI_CTL_1,
+			0x1 << RG_HDMITX_PWR5V_O_SHIFT, RG_HDMITX_PWR5V_O);
+	else
+		mtk_hdmi_phy_mask(hdmi_phy, HDMI_CTL_1,
+			0x0 << RG_HDMITX_PWR5V_O_SHIFT, RG_HDMITX_PWR5V_O);
+}
+
 struct mtk_hdmi_phy_conf mtk_hdmi_phy_8195_conf = {
 	/* TODO: CLK_SET_RATE_GATE causes hdmi_txpll clock
 	 * set_rate() fails. We need to adjust client
@@ -758,6 +725,7 @@ struct mtk_hdmi_phy_conf mtk_hdmi_phy_8195_conf = {
 	.hdmi_phy_disable_tmds = mtk_hdmi_phy_disable_tmds,
 	.hdmi_phy_configure = mtk_hdmi_phy_configure,
 	.efuse_sw_mode = false,
+	.power_control = mtk_hdmi_power_control,
 };
 
 MODULE_AUTHOR("Can Zeng <can.zeng@mediatek.com>");

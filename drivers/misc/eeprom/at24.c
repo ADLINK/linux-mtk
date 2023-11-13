@@ -5,6 +5,7 @@
  * Copyright (C) 2005-2007 David Brownell
  * Copyright (C) 2008 Wolfram Sang, Pengutronix
  */
+
 #include <linux/acpi.h>
 #include <linux/bitops.h>
 #include <linux/capability.h>
@@ -23,6 +24,7 @@
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
+
 /* Address pointer is 16 bit. */
 #define AT24_FLAG_ADDR16	BIT(7)
 /* sysfs-entry will be read-only. */

@@ -844,18 +844,9 @@ int stmmac_init_tstamp_counter(struct stmmac_priv *priv, u32 systime_flags)
 	struct timespec64 now;
 	u32 sec_inc = 0;
 	u64 temp = 0;
-	int ret;
 
 	if (!(priv->dma_cap.time_stamp || priv->dma_cap.atime_stamp))
 		return -EOPNOTSUPP;
-
-	ret = clk_prepare_enable(priv->plat->clk_ptp_ref);
-	if (ret < 0) {
-		netdev_warn(priv->dev,
-			    "failed to enable PTP reference clock: %pe\n",
-			    ERR_PTR(ret));
-		return ret;
-	}
 
 	stmmac_config_hw_tstamping(priv, priv->ptpaddr, systime_flags);
 	priv->systime_flags = systime_flags;
@@ -1174,7 +1165,7 @@ static void stmmac_mac_link_up(struct phylink_config *config,
 
 	stmmac_mac_set(priv, priv->ioaddr, true);
 	if (phy && priv->dma_cap.eee) {
-		priv->eee_active = phy_init_eee(phy, 1) >= 0;
+		priv->eee_active = phy_init_eee(phy, priv->plat->en_rx_lpi_clockgating) >= 0;
 		priv->eee_enabled = stmmac_eee_init(priv);
 		priv->tx_lpi_enabled = priv->eee_enabled;
 		stmmac_set_eee_pls(priv, priv->hw, true);
@@ -3324,6 +3315,14 @@ static int stmmac_hw_setup(struct net_device *dev, bool ptp_register)
 	stmmac_dma_operation_mode(priv);
 
 	stmmac_mmc_setup(priv);
+
+	if (ptp_register) {
+		ret = clk_prepare_enable(priv->plat->clk_ptp_ref);
+		if (ret < 0)
+			netdev_warn(priv->dev,
+				    "failed to enable PTP reference clock: %pe\n",
+				    ERR_PTR(ret));
+	}
 
 	ret = stmmac_init_ptp(priv);
 	if (ret == -EOPNOTSUPP)
@@ -7081,7 +7080,7 @@ int stmmac_dvr_probe(struct device *device,
 		dev_info(priv->device, "TSO feature enabled\n");
 	}
 
-	if (priv->dma_cap.sphen) {
+	if (priv->dma_cap.sphen && !priv->plat->sph_disable) {
 		ndev->hw_features |= NETIF_F_GRO;
 		priv->sph_cap = true;
 		priv->sph = priv->sph_cap;
@@ -7481,6 +7480,15 @@ int stmmac_resume(struct device *dev)
 
 	mutex_unlock(&priv->lock);
 	rtnl_unlock();
+
+	/* stmmac_hw_setup will do DMA initialization and SW reset
+	 * which let MAC lost the hardware setting lead to MAC can't work.
+	 * so call phylink_mac_change(priv->phylink, false) and
+	 * phylink_mac_change(priv->phylink, true) to
+	 * initialize the configuration of mac.
+	 */
+	phylink_mac_change(priv->phylink, false);
+	phylink_mac_change(priv->phylink, true);
 
 	netif_device_attach(ndev);
 

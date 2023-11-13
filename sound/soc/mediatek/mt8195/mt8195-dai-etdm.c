@@ -482,6 +482,7 @@ static int mtk_dai_etdm_enable_mclk(struct mtk_base_afe *afe, int dai_id)
 	/* set rate */
 	ret = mt8195_afe_set_clk_rate(afe, afe_priv->clk[clkdiv_id],
 				      etdm_data->mclk_freq);
+
 	mt8195_afe_enable_clk(afe, afe_priv->clk[clkdiv_id]);
 
 	return 0;
@@ -564,10 +565,11 @@ static int mtk_etdm_cg_connect(struct snd_soc_dapm_widget *source,
 
 		etdm_priv = afe_priv->dai_priv[etdm_priv->cowork_source_id];
 	}
-		for (i = 0; i < etdm_priv->cowork_slv_count; i++) {
-			if (etdm_priv->cowork_slv_id[i] == cg_id)
-				return 1;
-		}
+
+	for (i = 0; i < etdm_priv->cowork_slv_count; i++) {
+		if (etdm_priv->cowork_slv_id[i] == cg_id)
+			return 1;
+	}
 
 	return 0;
 }
@@ -2787,6 +2789,9 @@ static void mt8195_dai_etdm_parse_of(struct mtk_base_afe *afe)
 
 	/* etdm in only */
 	for (i = 0; i < 2; i++) {
+		dai_id = ETDM_TO_DAI_ID(i);
+		etdm_data = afe_priv->dai_priv[dai_id];
+
 		ret = snprintf(prop, sizeof(prop),
 			       "mediatek,%s-chn-disabled",
 			       of_afe_etdms[i].name);
