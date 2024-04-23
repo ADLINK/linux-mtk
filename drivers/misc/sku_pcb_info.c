@@ -18,6 +18,10 @@
 #define PCB_BIT0 20
 #define PCB_BIT1 21
 
+#define PCB_R0_CFG0_REG	0x11F40070
+#define PCB_R0_CFG0_BIT0   9
+#define PCB_R0_CFG0_BIT1   8
+
 struct sku_info {
     uint32_t sku_id;
     char* sku_str;
@@ -39,11 +43,19 @@ static struct kobject *kobj_ref;
 
 static ssize_t pcb_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {
     void __iomem *pcb_reg;
+    void __iomem *pcb_r0_cfg0_reg;
     uint32_t pcb_id_0, pcb_id_1;
     uint32_t pcb_id;
     uint32_t reg_value;
 
     pcb_reg = ioremap(PCB_REG, sizeof(uint32_t));
+    pcb_r0_cfg0_reg = ioremap(PCB_R0_CFG0_REG, sizeof(uint32_t));
+
+    reg_value = ioread32(pcb_r0_cfg0_reg);
+    reg_value &= ~(1 << PCB_R0_CFG0_BIT0);
+    reg_value &= ~(1 << PCB_R0_CFG0_BIT1);
+   
+    iowrite32(reg_value, pcb_r0_cfg0_reg);
 
     pcb_id_0 = (ioread32(pcb_reg) >> PCB_BIT0) & 0x1;
     pcb_id_1 = (ioread32(pcb_reg) >> PCB_BIT1) & 0x1;
@@ -51,6 +63,7 @@ static ssize_t pcb_show(struct kobject *kobj, struct kobj_attribute *attr, char 
     pcb_id = (pcb_id_1 << 1) | pcb_id_0;
 
     iounmap(pcb_reg);
+    iounmap(pcb_r0_cfg0_reg);
 
     switch (pcb_id) {
     case 0:
